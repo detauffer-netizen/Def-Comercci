@@ -45,6 +45,7 @@
   <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z"/><path d="M9 6v12" stroke-dasharray="2 2"/></symbol>
   <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
   <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></symbol>
 </svg>
 
@@ -249,6 +250,13 @@
               </div>
             </div>
           </div>
+          <div class="card" id="ai-campaign-card" hidden>
+            <h2>Assistente de divulgação <span class="badge">IA</span></h2>
+            <p class="muted">Gere mensagens para WhatsApp e Instagram com os seus produtos e preços.</p>
+            <label class="field"><span>O que você quer divulgar?</span><input id="campaign-goal" maxlength="300" placeholder="Ex.: promoção de fim de semana, novidades de Natal"></label>
+            <button type="button" class="btn btn-blue" id="campaign-go"><svg class="icon icon-sm"><use href="#i-spark"/></svg>Gerar textos</button>
+            <div id="campaign-out"></div>
+          </div>
           <div class="card" id="coupons-card">
             <h2>Cupons de desconto</h2>
             <p class="muted">Crie códigos para promoções. O desconto é aplicado na vitrine e calculado pelo sistema.</p>
@@ -311,6 +319,15 @@
   <form id="product-form" method="dialog" novalidate>
     <div class="dialog-head"><h2 id="product-dialog-title">Novo produto</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
     <div class="dialog-body">
+      <section class="ai-box" id="ai-box" hidden aria-labelledby="ai-box-title">
+        <div class="ai-head"><svg class="icon"><use href="#i-spark"/></svg><strong id="ai-box-title">Preencher com IA</strong><small id="ai-usage" class="muted"></small></div>
+        <label class="field"><span>Descreva o produto como você falaria no WhatsApp</span><textarea id="ai-text" rows="2" maxlength="1000" placeholder="Ex.: Camiseta azul de algodão, tamanhos P M G, R$ 59,90"></textarea></label>
+        <div class="ai-actions">
+          <button type="button" id="ai-from-text" class="btn btn-blue btn-sm"><svg class="icon icon-sm"><use href="#i-spark"/></svg>Gerar cadastro</button>
+          <label class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-image"/></svg>Analisar uma foto<input type="file" id="ai-photo" accept="image/jpeg,image/png,image/webp" hidden></label>
+        </div>
+        <p id="ai-note" class="ai-note" role="status" hidden></p>
+      </section>
       <div id="image-manager" class="image-manager">
         <div id="image-grid" class="image-grid"></div>
         <label class="image-add" id="image-add"><svg class="icon"><use href="#i-image"/></svg><span>Adicionar fotos</span><input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
@@ -318,6 +335,7 @@
       </div>
       <label class="field"><span>Nome do produto</span><input name="name" maxlength="120" required></label>
       <label class="field"><span>Descrição</span><textarea name="description" maxlength="2000" placeholder="Material, medidas, diferenciais..."></textarea></label>
+      <button type="button" id="ai-improve" class="btn btn-ghost btn-sm ai-improve" hidden><svg class="icon icon-sm"><use href="#i-spark"/></svg>Melhorar título e descrição com IA</button>
       <div class="grid-2">
         <label class="field"><span>Preço (R$)</span><input name="price" inputmode="decimal" placeholder="0,00" required></label>
         <label class="field"><span>Preço promocional (R$)</span><input name="promo" inputmode="decimal" placeholder="Opcional"></label>

@@ -242,3 +242,17 @@
 .cat-order li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .cat-order .btn-icon { width: 34px; min-height: 34px; }
 #category-card { margin-top: 16px; }
+
+/* IA */
+.ai-box { border: 1px solid #cfdcf5; background: linear-gradient(180deg, var(--blue-50), #fff); border-radius: 14px; padding: 12px; margin-bottom: 14px; }
+.ai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--blue-700); }
+.ai-head small { margin-left: auto; font-size: 12px; }
+.ai-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ai-note { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--orange-50); color: #7a3a00; font-size: 14px; font-weight: 500; }
+.ai-note.error { background: var(--danger-bg); color: var(--danger); }
+.ai-filled { box-shadow: 0 0 0 2px var(--orange-500) inset; }
+.ai-improve { margin: -4px 0 12px; }
+.campaign-block { margin-top: 14px; }
+.campaign-block textarea { width: 100%; min-height: 110px; border: 1px solid #cdd7e6; border-radius: 10px; padding: 10px; font: inherit; }
+.campaign-block .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.campaign-block ul { padding-left: 1.2rem; margin: 6px 0 0; }
