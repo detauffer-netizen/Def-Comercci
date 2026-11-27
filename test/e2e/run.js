@@ -596,6 +596,9 @@ try {
     assert.match(await page.locator("#foot").textContent(), /\(54\) 99999-0000/);
     await noHorizontalScroll(page, "catálogo");
     await shot(page, "17-catalogo-mobile");
+    // Margem para fontes mais largas (CI): também a 320 px.
+    await page.setViewportSize({ width: 320, height: 640 });
+    await noHorizontalScroll(page, "catálogo 320px");
     await page.getByRole("button", { name: "Imprimir ou salvar em PDF" }).waitFor();
     await page.close();
   });

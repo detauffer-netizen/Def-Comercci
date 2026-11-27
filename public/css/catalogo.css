@@ -1,6 +1,6 @@
 /* Catálogo para impressão / PDF (A4). */
 body { background: #e9edf4; }
-.toolbar { position: sticky; top: 0; z-index: 2; display: flex; justify-content: center; gap: 10px; padding: 10px; background: rgb(233 237 244 / 92%); backdrop-filter: blur(6px); }
+.toolbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px; background: rgb(233 237 244 / 92%); backdrop-filter: blur(6px); }
 .sheet { max-width: 210mm; margin: 12px auto 32px; background: #fff; padding: 14mm 12mm; box-shadow: 0 10px 30px rgb(7 22 48 / 15%); border-top: 6px solid var(--accent); }
 .cat-head { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 16px; }
 .cat-head h1 { margin: 0; font-size: 1.8rem; }
@@ -26,3 +26,4 @@ body { background: #e9edf4; }
   .sheet { box-shadow: none; margin: 0; padding: 0; max-width: none; border-top: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+.toolbar .btn { white-space: normal; text-align: center; }
