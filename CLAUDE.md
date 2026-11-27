@@ -30,7 +30,7 @@ Rode os três antes de cada commit que toque código.
 
 1. **Isolamento:** toda consulta do painel filtra por `session.store.id`. Nunca aceite `store_id` do cliente.
 2. **Preços e totais** sempre calculados no servidor a partir do banco.
-3. **Estoque** só muda por `PATCH /api/products/:id` ou pelos gatilhos de pedidos (`migrations/0005_stock.sql`). Os gatilhos garantem atomicidade, impedem estoque negativo e baixa duplicada.
+3. **Estoque** só muda por `PATCH /api/products/:id`, pelos gatilhos de pedidos (`migrations/0005_stock.sql`, 0009), de devoluções (0019) ou de `stock_adjustments` (0020). Os gatilhos garantem atomicidade, impedem estoque negativo e baixa duplicada.
 4. **Validação** de toda entrada em `src/lib/validate.js`. SQL apenas com `prepare().bind()`.
 5. **Frontend sem `innerHTML` com dados**: use `h()` de `public/js/common.js` (texto via `textContent`).
 6. **CSP estrita**: nada de `<script>` inline nem `onclick=` no HTML.
@@ -44,11 +44,11 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 7, 8 e 9 parciais. Versão 1.5.0-beta: IA com Workers AI, variações,
+Fase 1 concluída. Fases 2, 3, 5, 6, 7, 8 e 9 parciais. Versão 1.6.0-beta: IA com Workers AI, variações,
 equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
 avisos de pedidos, nova landing, cupons, PWA, monitoramento de erros, entrega e
 retirada, ordem da vitrine, impressão de pedidos, verificação em duas etapas,
-ordem das categorias, catálogo em PDF e planos com Mercado Pago (cobrança desligada) carrinho abandonado com consentimento resumo com lucro (custo histórico), PDV e financeiro (a receber, devoluções, despesas). Detalhes e
+ordem das categorias, catálogo em PDF e planos com Mercado Pago (cobrança desligada) carrinho abandonado com consentimento resumo com lucro (custo histórico), PDV, financeiro (a receber, devoluções, despesas) e estoque avançado (entradas, perdas, inventário, fornecedores, Preciso repor). Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades
@@ -67,6 +67,7 @@ próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 - Resumo (`src/routes/dashboard.js`): só consultas determinísticas; recomendações trazem `action` (view + ids/status). Estoque mínimo padrão 3.
 - PDV (`src/routes/sales.js`): venda = pedido `channel='pos'` inserido como pendente e levado a confirmado → concluído no mesmo `db.batch` (os gatilhos de estoque fazem a baixa). Idempotente pelo `id` vindo do aparelho. Pagamentos são só registro (`payments_json`); "a prazo" vira `receivable_cents`.
 - Financeiro (`src/routes/finance.js`): devolução = linha em `order_returns`; os gatilhos `order_return_guard` (só concluídas, nunca mais que o vendido) e `order_return_restock` cuidam do estoque. Baixa de conta a prazo com INSERT…SELECT + UPDATE condicionados ao saldo no mesmo batch. Ao excluir a loja, apague `order_returns`, `receivable_payments` e `expenses` antes de `orders`.
+- Estoque avançado (`src/routes/stock.js`): toda movimentação manual é um INSERT em `stock_adjustments`; os gatilhos validam produto/variação e aplicam o delta. Nunca faça UPDATE direto de estoque fora desses caminhos. "Preciso repor" desconta itens de pedidos pendentes (reservados).
 - Frontend: `replaceChildren` com `null` vira texto "null"; use `kids(...)` ou `h()` (que ignora nulos).
 - Def Commerce 2.0: o plano em 10 fases está em `ROADMAP.md`.
 - `test/helpers/env.js` implementa o subconjunto da API do D1 usado pelo código. Se
