@@ -9,6 +9,9 @@ import * as pub from "./routes/public.js";
 import * as panel from "./routes/panel.js";
 import * as team from "./routes/team.js";
 import * as admin from "./routes/admin.js";
+import * as privacy from "./routes/privacy.js";
+import * as reports from "./routes/reports.js";
+import { robots, sitemap, storefrontPage } from "./lib/seo.js";
 
 // [método, padrão, handler, acesso]
 // acesso: "public" · "session" (qualquer membro da loja) · uma permissão
@@ -39,7 +42,11 @@ const ROUTES = [
   ["GET", "/api/orders", panel.listOrders, "orders"],
   ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
   ["GET", "/api/customers", panel.listCustomers, "customers"],
+  ["DELETE", "/api/customers/:phone", privacy.forgetCustomer, "customers"],
   ["GET", "/api/metrics", panel.metrics, "reports"],
+  ["GET", "/api/reports", reports.report, "reports"],
+  ["GET", "/api/account/export", privacy.exportData, "owner"],
+  ["POST", "/api/account/delete", privacy.deleteStore, "owner"],
   ["GET", "/api/audit-log", panel.auditLog, "owner"],
   ["POST", "/api/admin/logout", auth.logout, "admin"],
   ["GET", "/api/admin/me", admin.adminMe, "admin"],
@@ -151,8 +158,16 @@ export default {
     if (path === "/") return asset(env, request, "/index.html");
     if (path === "/painel" || path === "/painel/") return asset(env, request, "/painel.html");
     if (path === "/admin" || path === "/admin/") return asset(env, request, "/admin.html");
-    if (/^\/loja\/[a-z0-9-]{3,60}\/?$/.test(path)) return asset(env, request, "/vitrine.html");
-    if (/^\/(css|js|icons)\/[a-z0-9._-]+$/.test(path) || path === "/robots.txt" || path === "/favicon.svg") {
+    const shop = path.match(/^\/loja\/([a-z0-9-]{3,60})\/?$/);
+    if (shop) {
+      const { html, status } = await storefrontPage(env, request, shop[1]);
+      return withHeaders(new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } }));
+    }
+    if (path === "/privacidade") return asset(env, request, "/privacidade.html");
+    if (path === "/termos") return asset(env, request, "/termos.html");
+    if (path === "/sitemap.xml") return withHeaders(await sitemap(env, request));
+    if (path === "/robots.txt") return withHeaders(robots(request));
+    if (/^\/(css|js|icons)\/[a-z0-9._-]+$/.test(path) || path === "/favicon.svg") {
       return asset(env, request, path);
     }
     return withHeaders(new Response("Página não encontrada", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } }));

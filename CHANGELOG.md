@@ -2,6 +2,17 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.4.0] — 2026-11-27 — LGPD, SEO da vitrine e relatórios
+
+### Adicionado
+- **Relatórios por período** (7, 30 ou 90 dias) no início do painel: vendas por dia em gráfico com dica no mouse, no toque e no teclado, tabela equivalente, comparação com o período anterior e produtos mais vendidos.
+- **LGPD:** páginas de Política de Privacidade e Termos de Uso; exportação de todos os dados da loja em JSON; exclusão definitiva da loja (produtos, fotos, pedidos, clientes, equipe e registros); anonimização de um comprador mantendo os valores nos relatórios. Links no cadastro, na landing e na vitrine.
+- **SEO da vitrine:** título, descrição, cor do navegador, Open Graph, canonical e dados estruturados (schema.org Store) gerados no servidor para cada loja; `sitemap.xml` com as lojas ativas que têm produtos; `robots.txt` dinâmico.
+- 10 testes de API novos (65 no total) e 5 verificações E2E novas (20 no total).
+
+### Alterado
+- Vitrine de loja inexistente ou suspensa responde com status 404 e `noindex`.
+
 ## [0.3.0] — 2026-11-27 — Variações, equipe e super administrador
 
 ### Adicionado

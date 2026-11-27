@@ -342,11 +342,96 @@ try {
     await adminCtx.close();
   });
 
+  await check("gráfico de vendas por dia com dica, períodos e tabela", async () => {
+    await panel.goto(url + "/painel#inicio");
+    const perf = panel.locator("#perf-card");
+    await perf.locator(".chart svg .bar").first().waitFor();
+    assert.match(await perf.locator("#perf-summary").textContent(), /Vendas no período/);
+    const bar = perf.locator(".chart svg .bar").last();
+    const box = await bar.boundingBox();
+    const chartBox = await perf.locator(".chart svg").boundingBox();
+    // Toque na barra (celular) mostra a dica do dia.
+    await perf.locator(".chart svg").tap({ position: { x: box.x - chartBox.x + box.width / 2, y: box.y - chartBox.y + 2 } });
+    const tip = perf.locator(".chart-tip");
+    await tip.waitFor();
+    assert.match(await tip.textContent(), /R\$/);
+    // Teclado: setas percorrem os dias.
+    await perf.locator(".chart svg").focus();
+    await panel.keyboard.press("ArrowLeft");
+    assert.match(await tip.textContent(), /pedido\(s\)/);
+    await perf.getByRole("button", { name: "7 dias" }).click();
+    await perf.locator('#perf-periods .chip[data-days="7"][aria-pressed="true"]').waitFor();
+    await perf.locator("summary", { hasText: "Ver como tabela" }).click();
+    assert.equal(await perf.locator("#perf-table tbody tr").count(), 7);
+    assert.ok((await perf.locator("#perf-top .row").count()) >= 1);
+    await noHorizontalScroll(panel, "desempenho");
+    await shot(panel, "13-desempenho-mobile");
+  });
+
+  await check("vitrine com título, descrição e prévia de compartilhamento da loja", async () => {
+    const res = await panel.request.get(url + "/loja/moda-da-ana");
+    const html = await res.text();
+    assert.match(html, /<title>Moda da Ana \| Catálogo<\/title>/);
+    assert.match(html, /<meta property="og:description" content="Moda feminina com entrega na cidade.">/);
+    assert.match(html, /application\/ld\+json/);
+    assert.equal((await panel.request.get(url + "/loja/nao-existe")).status(), 404);
+    assert.match(await (await panel.request.get(url + "/sitemap.xml")).text(), /\/loja\/moda-da-ana/);
+  });
+
+  await check("LGPD: exportar dados e excluir dados de um cliente", async () => {
+    await panel.goto(url + "/painel#loja");
+    const download = panel.waitForEvent("download");
+    await panel.getByRole("button", { name: "Exportar dados" }).click();
+    const file = await download;
+    assert.match(file.suggestedFilename(), /^def-commerce-moda-da-ana-.*\.json$/);
+    const data = JSON.parse(await (await import("node:fs/promises")).readFile(await file.path(), "utf8"));
+    assert.equal(data.store.slug, "moda-da-ana");
+    assert.ok(data.orders.length >= 2);
+    await panel.goto(url + "/painel#clientes");
+    await panel.getByRole("button", { name: "Excluir dados de Carlos" }).click();
+    await panel.locator("#toast", { hasText: "Dados do cliente excluídos" }).waitFor();
+    assert.equal(await panel.locator("#customer-list .row", { hasText: "Carlos" }).count(), 0);
+    await panel.goto(url + "/painel#pedidos");
+    await panel.locator(".order", { hasText: "Cliente removido" }).waitFor();
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();
     await panel.reload();
     await panel.locator("#login").waitFor();
+  });
+
+  await check("lojista exclui a própria loja definitivamente", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+    const page = await ctx.newPage();
+    watch(page, "exclusão");
+    await page.goto(url + "/painel#cadastro");
+    const form = page.locator("#register");
+    await form.getByLabel("Nome da loja").fill("Loja Temporaria");
+    await form.getByLabel("E-mail").fill("temp@exemplo.com.br");
+    await form.getByLabel("Senha").fill("senha-forte-123");
+    await form.getByRole("checkbox").check();
+    await form.getByRole("button", { name: "Criar loja grátis" }).click();
+    await page.locator("#onboarding").waitFor();
+    await page.goto(url + "/painel#loja");
+    await page.getByRole("button", { name: "Excluir loja" }).click();
+    const dialog = page.locator("#delete-store-dialog");
+    await dialog.getByLabel(/Digite o endereço/).fill("loja-temporaria");
+    await dialog.getByLabel("Sua senha").fill("senha-forte-123");
+    await noDialogOverflow(dialog, "exclusão da loja");
+    await dialog.getByRole("button", { name: "Excluir definitivamente" }).click();
+    await page.locator("#auth-error", { hasText: "foram excluídos" }).waitFor();
+    assert.equal((await page.request.get(url + "/loja/loja-temporaria")).status(), 404);
+    await ctx.close();
+  });
+
+  await check("páginas de privacidade e termos", async () => {
+    for (const [path, title] of [["/privacidade", "Política de Privacidade"], ["/termos", "Termos de Uso"]]) {
+      await panel.goto(url + path);
+      await panel.getByRole("heading", { level: 1, name: title }).waitFor();
+      await noHorizontalScroll(panel, path);
+    }
   });
 
   await check("nenhum erro de console ou violação de CSP", async () => {

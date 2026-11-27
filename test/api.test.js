@@ -26,9 +26,10 @@ describe("saúde e páginas", () => {
 
   test("páginas estáticas são servidas com cabeçalhos de segurança", async () => {
     const env = createEnv();
-    for (const path of ["/", "/painel", "/loja/minha-loja"]) {
+    await newMerchant(env, { slug: "minha-loja" });
+    for (const [path, status] of [["/", 200], ["/painel", 200], ["/admin", 200], ["/loja/minha-loja", 200], ["/loja/inexistente", 404]]) {
       const res = await workerFetch(env, new Request(ORIGIN + path));
-      assert.equal(res.status, 200, path);
+      assert.equal(res.status, status, path);
       assert.match(res.headers.get("Content-Security-Policy"), /frame-ancestors 'none'/);
       assert.equal(res.headers.get("X-Frame-Options"), "DENY");
     }

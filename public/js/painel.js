@@ -143,6 +143,8 @@ async function loadHome() {
   const showOrders = can("orders");
   const showProducts = can("products");
   $("kpis").hidden = !showReports;
+  $("perf-card").hidden = !showReports;
+  if (showReports) loadPerformance(state.perfDays || 30).catch(fail);
   $("recent-card").hidden = !showOrders;
   $("stock-card").hidden = !showProducts;
   if (showOrders) loading($("recent-orders"));
@@ -209,6 +211,145 @@ async function loadHome() {
     empty($("kpis"), "store", "Seu acesso ainda não inclui nenhuma área. Fale com o proprietário da loja.");
   }
 }
+
+// ---------- Desempenho (gráfico de vendas por dia) ----------
+
+const SVG = "http://www.w3.org/2000/svg";
+function svg(tag, attrs = {}, ...children) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  node.append(...children);
+  return node;
+}
+const shortDate = (day) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+const longDate = (day) => new Date(`${day}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" });
+const compactMoney = (cents) => {
+  const v = cents / 100;
+  return v >= 1000 ? `R$ ${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
+};
+
+async function loadPerformance(days) {
+  state.perfDays = days;
+  for (const c of document.querySelectorAll("#perf-periods .chip")) c.setAttribute("aria-pressed", String(Number(c.dataset.days) === days));
+  const r = await api(`/api/reports?days=${days}`);
+  state.report = r;
+  const t = r.totals;
+  let delta = "Sem vendas no período anterior";
+  if (r.previous.revenue > 0) {
+    const pct = Math.round(((t.revenue - r.previous.revenue) / r.previous.revenue) * 100);
+    delta = `${pct > 0 ? "▲" : pct < 0 ? "▼" : "="} ${Math.abs(pct)}% vs. ${days} dias anteriores`;
+  }
+  const item = (label, value, extra) => h("div", {}, h("small", { text: label }), h("strong", { text: value }), extra ? h("span", { class: "delta", text: extra }) : null);
+  $("perf-summary").replaceChildren(
+    item("Vendas no período", money(t.revenue), delta),
+    item("Pedidos vendidos", String(t.sold)),
+    item("Ticket médio", money(t.average_ticket)),
+    item("Cancelados", String(t.cancelled), t.pending ? `${t.pending} pendente(s)` : null),
+  );
+  renderChart();
+  $("perf-table").replaceChildren(h("table", {},
+    h("thead", {}, h("tr", {}, h("th", { text: "Dia" }), h("th", { text: "Pedidos vendidos" }), h("th", { text: "Vendas" }))),
+    h("tbody", {}, ...r.series.slice().reverse().map((d) => h("tr", {}, h("td", { text: longDate(d.day) }), h("td", { text: String(d.sold) }), h("td", { text: money(d.revenue) }))))));
+  if (!r.top_products.length) empty($("perf-top"), "box", "Nenhuma venda no período.");
+  else $("perf-top").replaceChildren(...r.top_products.map((p) => h("div", { class: "row" },
+    h("div", { class: "grow" }, h("strong", { text: p.variant ? `${p.name} (${p.variant})` : p.name }), h("small", { text: `${p.quantity} unidade(s)` })),
+    h("strong", { text: money(p.revenue) }))));
+}
+
+function renderChart() {
+  const box = $("perf-chart");
+  const r = state.report;
+  if (!r || box.offsetParent === null) return;
+  const series = r.series;
+  const W = box.clientWidth;
+  const H = box.clientHeight;
+  const pad = { top: 10, right: 4, bottom: 22, left: 56 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const max = Math.max(...series.map((d) => d.revenue));
+  // Escala "bonita": 3 linhas de grade em múltiplos de 1, 2 ou 5.
+  const raw = Math.max(max, 100) / 3;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * mag).find((x) => x >= raw);
+  const top = step * 3;
+  const y = (v) => pad.top + plotH - (v / top) * plotH;
+  const slot = plotW / series.length;
+  const barW = Math.max(1, Math.min(24, slot - 2));
+  const radius = Math.min(4, barW / 2);
+
+  const grid = svg("g", { class: "grid" });
+  const axis = svg("g", { class: "axis" });
+  for (let i = 0; i <= 3; i++) {
+    const v = step * i;
+    grid.append(svg("line", { x1: pad.left, x2: W - pad.right, y1: y(v), y2: y(v) }));
+    const label = svg("text", { x: pad.left - 8, y: y(v) + 4, "text-anchor": "end" });
+    label.textContent = compactMoney(v);
+    axis.append(label);
+  }
+  const ticks = [0, Math.floor((series.length - 1) / 2), series.length - 1];
+  for (const i of [...new Set(ticks)]) {
+    const t = svg("text", { x: pad.left + slot * i + slot / 2, y: H - 6, "text-anchor": i === 0 ? "start" : i === series.length - 1 ? "end" : "middle" });
+    t.textContent = shortDate(series[i].day);
+    axis.append(t);
+  }
+  const bars = svg("g");
+  series.forEach((d, i) => {
+    if (!d.revenue) return;
+    const x = pad.left + slot * i + (slot - barW) / 2;
+    const top = y(d.revenue);
+    const h = Math.max(1, pad.top + plotH - top);
+    const rr = Math.min(radius, h);
+    // Topo arredondado, base reta na linha de base.
+    const path = `M${x},${top + h} V${top + rr} Q${x},${top} ${x + rr},${top} H${x + barW - rr} Q${x + barW},${top} ${x + barW},${top + rr} V${top + h} Z`;
+    bars.append(svg("path", { d: path, class: "bar", "data-i": i }));
+  });
+  const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", tabindex: "0",
+    "aria-label": `Vendas por dia nos últimos ${r.days} dias. Total ${money(r.totals.revenue)}. Use as setas para percorrer os dias.` }, grid, axis, bars);
+  const tip = h("div", { class: "chart-tip", hidden: true });
+  box.replaceChildren(chart, tip);
+
+  let current = -1;
+  const show = (i) => {
+    current = Math.max(0, Math.min(series.length - 1, i));
+    const d = series[current];
+    for (const b of bars.children) b.classList.toggle("on", Number(b.dataset.i) === current);
+    tip.replaceChildren(h("strong", { text: money(d.revenue) }), `${longDate(d.day)} · ${d.sold} pedido(s)`);
+    tip.hidden = false;
+    const cx = pad.left + slot * current + slot / 2;
+    const tipW = tip.offsetWidth;
+    tip.style.left = `${Math.max(tipW / 2, Math.min(W - tipW / 2, cx))}px`;
+    tip.style.top = `${Math.max(tip.offsetHeight + 2, y(d.revenue) - 6)}px`;
+  };
+  const hide = () => {
+    tip.hidden = true;
+    current = -1;
+    for (const b of bars.children) b.classList.remove("on");
+  };
+  // A área de toque é a faixa inteira do dia, maior que a barra.
+  const pick = (e) => {
+    const rect = chart.getBoundingClientRect();
+    const i = Math.floor(((e.clientX - rect.left) * (W / rect.width) - pad.left) / slot);
+    if (i < 0 || i >= series.length) return hide();
+    show(i);
+  };
+  // Mouse: acompanha o ponteiro. Toque: mostra o dia tocado.
+  chart.addEventListener("pointermove", pick);
+  chart.addEventListener("pointerdown", pick);
+  chart.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hide(); });
+  chart.addEventListener("blur", hide);
+  chart.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      show(current < 0 ? series.length - 1 : current + (e.key === "ArrowRight" ? 1 : -1));
+    } else if (e.key === "Escape") hide();
+  });
+}
+
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderChart, 150);
+});
 
 function updatePendingBadge() {
   const pending = state.metrics?.pending ?? (state.orders || []).filter((o) => o.status === "pending").length;
@@ -539,7 +680,17 @@ async function loadCustomers() {
   box.replaceChildren(h("div", { class: "card" }, ...customers.map((c) => h("div", { class: "row" },
     h("div", { class: "grow" }, h("strong", { text: c.name }), h("small", { text: `${formatPhone(c.phone)} · último pedido ${formatDate(c.last_order)}` })),
     h("div", { style: { textAlign: "right" } }, h("strong", { text: money(c.spent) }), h("small", { class: "muted", style: { display: "block" }, text: `${c.orders} pedido(s)` })),
-    h("a", { class: "btn btn-ghost btn-icon", href: whatsappLink(c.phone, `Olá, ${c.name.split(" ")[0]}! `), target: "_blank", rel: "noopener", "aria-label": `WhatsApp de ${c.name}` }, icon("chat"))))));
+    h("a", { class: "btn btn-ghost btn-icon", href: whatsappLink(c.phone, `Olá, ${c.name.split(" ")[0]}! `), target: "_blank", rel: "noopener", "aria-label": `WhatsApp de ${c.name}` }, icon("chat")),
+    h("button", { class: "btn btn-ghost btn-icon", "aria-label": `Excluir dados de ${c.name}`, title: "Excluir dados (LGPD)", onclick: (e) => forgetCustomer(c, e.currentTarget) }, icon("trash"))))));
+}
+
+async function forgetCustomer(customer, button) {
+  if (!confirm(`Excluir os dados de ${customer.name}? Nome, telefone e observações serão apagados de ${customer.orders} pedido(s). Os valores continuam nos relatórios. Esta ação não pode ser desfeita.`)) return;
+  await busy(button, async () => {
+    await api(`/api/customers/${customer.phone}`, { method: "DELETE" });
+    toast("Dados do cliente excluídos.");
+    await loadCustomers();
+  });
 }
 
 // ---------- Loja ----------
@@ -797,6 +948,37 @@ $("add-variant").addEventListener("click", () => {
   row.querySelector("input").focus();
 });
 $("team-form").addEventListener("submit", addMember);
+$("perf-periods").addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (chip) loadPerformance(Number(chip.dataset.days)).catch(fail);
+});
+$("export-data").addEventListener("click", (e) => busy(e.currentTarget, async () => {
+  const data = await api("/api/account/export");
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  const a = h("a", { href: url, download: `def-commerce-${state.me.store.slug}-${new Date().toISOString().slice(0, 10)}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast("Dados exportados.");
+}));
+$("open-delete-store").addEventListener("click", () => {
+  $("delete-store-form").reset();
+  $("delete-slug-hint").textContent = state.me.store.slug;
+  $("delete-store-dialog").showModal();
+});
+for (const b of document.querySelectorAll("[data-close-dialog]")) b.addEventListener("click", () => b.closest("dialog").close());
+$("delete-store-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.target));
+  if (data.confirm_slug.trim().toLowerCase() !== state.me.store.slug) return toast("O endereço digitado não confere.", { error: true });
+  await busy($("confirm-delete-store"), async () => {
+    await api("/api/account/delete", { method: "POST", body: data });
+    $("delete-store-dialog").close();
+    location.hash = "";
+    showAuth("Sua loja e todos os dados foram excluídos.");
+  });
+});
 $("open-password").addEventListener("click", () => openPassword(false));
 $("password-close").addEventListener("click", () => $("password-dialog").close());
 $("password-form").addEventListener("submit", savePassword);

@@ -78,3 +78,5 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .variant-chips .chip:disabled { opacity: .45; text-decoration: line-through; cursor: not-allowed; }
 .price-from { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 3px; }
 .cart-line .variant { display: block; font-size: 13px; color: var(--muted); }
+.shop-footer p { margin: 8px 0 0; }
+.shop-footer p a { color: var(--muted); }

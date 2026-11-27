@@ -21,12 +21,14 @@ src/
   index.js            roteamento, cabeçalhos de segurança, páginas
   lib/                http, criptografia, sessão/limites/auditoria, validação, imagens
   routes/             auth.js (cadastro/login), public.js (vitrine/pedidos), panel.js (painel),
-                      team.js (equipe e senha), admin.js (super administrador)
+                      team.js (equipe e senha), admin.js (super administrador),
+                      privacy.js (LGPD), reports.js (relatórios)
 public/
   index.html          landing page
   painel.html         painel do lojista (SPA leve, sem framework)
   vitrine.html        vitrine pública de cada loja
   admin.html          super administrador da plataforma
+  privacidade.html    Política de Privacidade · termos.html  Termos de Uso
   css/ js/            estilos e scripts (sem scripts inline: CSP estrita)
 migrations/           esquema do D1, em ordem
 test/                 testes de API (node:test + SQLite nativo) e E2E (Playwright)
@@ -42,7 +44,7 @@ banco. O navegador nunca escolhe a loja. Arquivos no R2 ficam em
 Requisitos: Node.js 22.5 ou mais recente.
 
 ```bash
-npm test             # testes de API e integração (55 testes, D1 simulado com SQLite real)
+npm test             # testes de API e integração (65 testes, D1 simulado com SQLite real)
 npm run check        # sintaxe dos scripts e conformidade com a CSP
 npm run test:e2e     # navegador real: cadastro → produto → vitrine → pedido → confirmação
 node test/e2e/server.js   # sobe o sistema localmente em http://localhost:8787

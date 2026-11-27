@@ -1,0 +1,12 @@
+/* Páginas institucionais (privacidade e termos). */
+.legal-top { background: var(--navy-900); color: #fff; padding: 14px 16px; }
+.legal-top .brand { color: #fff; }
+.legal { max-width: 760px; margin: 0 auto; padding: 28px 16px 56px; }
+.legal h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin-bottom: 4px; }
+.legal h2 { font-size: 1.15rem; margin: 28px 0 8px; }
+.legal p, .legal li { line-height: 1.65; color: #24344f; }
+.legal ul { padding-left: 1.2rem; }
+.legal .updated { color: var(--muted); font-size: 14px; }
+.legal .note { background: var(--orange-50); border-left: 4px solid var(--orange-500); padding: 12px 14px; border-radius: 10px; }
+.legal-foot { border-top: 1px solid var(--line); padding: 20px 16px; text-align: center; font-size: 14px; color: var(--muted); }
+.legal-foot a { margin: 0 8px; }
