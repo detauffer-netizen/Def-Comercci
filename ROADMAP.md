@@ -104,6 +104,21 @@ Provedor: Mercado Pago. Preços e ativação da cobrança dependem do proprietá
 - ✅ SEO da vitrine: título, descrição, Open Graph, canonical e dados estruturados por loja gerados no servidor; 404 real para lojas inexistentes; `sitemap.xml` e `robots.txt` dinâmicos
 - ✅ Página própria por produto (`/loja/<loja>/p/<id>`) com título, preço, imagem, Open Graph e dados estruturados `Product`; incluída no sitemap
 
+## Def Commerce 2.0 (prompt mestre de evolução)
+
+Ordem de execução e situação real:
+
+1. 🟡 Auditoria e integração: carrinho abandonado (PR #12) e lucro/resumo (bloco 1) prontos; publicação pendente (token da Cloudflare)
+2. ⬜ Redesign do painel e navegação mobile (Início, Produtos, Vendas, Clientes, Divulgação, Minha loja, Configurações; botão central de ação)
+3. 🟡 Cadastro inteligente: ✅ mensagem e foto com IA, ✅ custo/código de barras/fornecedor/localização; ⬜ custo e margem na IA, ⬜ leitura de código de barras pela câmera, ⬜ importação/exportação CSV, ⬜ duplicar e editar em massa, ⬜ várias fotos de uma vez
+4. 🟡 Estoque: ✅ histórico por gatilho, ✅ alerta de reposição por produto, ✅ valor do estoque pelo custo e de venda; ⬜ entradas/perdas/devoluções/inventário, ⬜ tela "Preciso repor" com lista de compras por fornecedor, ⬜ fornecedores
+5. ⬜ PDV e financeiro: venda presencial idempotente, formas de pagamento, despesas, contas a receber, calculadora de preço (✅ base: custo histórico, lucro bruto, ticket médio)
+6. 🟡 Catálogo premium e checkout: ✅ busca, categorias, destaques, variações, carrinho persistente, entrega/retirada, SEO por produto; ⬜ filtros de preço, favoritos, relacionados, horário, banners, modelos por segmento, reserva com expiração, página de acompanhamento do pedido
+7. 🟡 Marketing: ✅ textos com IA; ⬜ artes no navegador (Canvas) e QR Codes
+8. 🟡 CRM e assistente: ✅ clientes a partir dos pedidos; ⬜ segmentos, observações, assistente de perguntas sobre a loja
+9. 🟡 Onboarding e comercial: ✅ primeiros passos, planos com limites; ⬜ segmento no cadastro, loja demonstrativa, planos Essencial/Profissional/Premium por recurso
+10. 🟡 Segurança e desempenho: ✅ ver `SECURITY.md`; ⬜ consumo por loja, paginação, cache público
+
 ## Pendências reais (dependem do proprietário)
 
 1. **Acesso de escrita ao GitHub** para esta automação: instalar o Claude GitHub App no repositório.

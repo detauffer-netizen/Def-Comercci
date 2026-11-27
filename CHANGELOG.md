@@ -2,6 +2,16 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.3.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 1: lucro e resumo inteligente
+
+### Adicionado
+- **Custo e dados de compra no produto** (opcionais, recolhidos em "Custo, alerta de reposição e mais detalhes"): preço de custo, alerta de reposição (estoque mínimo, padrão 3), código de barras, fornecedor e localização na loja. Cálculo ao vivo de lucro por unidade, **margem** (sobre a venda) e **markup** (sobre o custo).
+- **Custo histórico:** cada item de pedido guarda o custo do momento da venda; mudar o custo depois não altera relatórios antigos. O custo nunca é enviado ao comprador nem aparece na lista de pedidos.
+- **Resumo da loja** na tela inicial (`GET /api/dashboard`, permissão de indicadores): faturamento, lucro bruto estimado (só sobre itens com custo, com a cobertura indicada), vendas, ticket médio, pedidos pendentes, estoque baixo, valor investido em estoque e valor de venda do estoque, com comparação com o período anterior. Períodos: hoje, ontem, 7 dias, 30 dias e datas escolhidas (até 1 ano).
+- **"O que fazer agora":** recomendações calculadas no banco (sem IA) e clicáveis: pedidos aguardando, itens para repor (filtro "Preciso repor"), produto que concentra as vendas, produtos sem vendas em 30 dias, produtos sem custo e carrinhos abandonados.
+- Edições feitas por versões antigas do painel não apagam os campos novos.
+- Migração 0017; 7 testes de API novos (134 no total) e E2E ampliado (29 verificações).
+
 ## [1.2.0-beta] — 2026-11-27 — Recuperação de carrinho abandonado
 
 ### Adicionado

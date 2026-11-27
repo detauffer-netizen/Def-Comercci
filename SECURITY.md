@@ -21,6 +21,7 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 | XSS | Frontend monta o DOM com `textContent`; Content-Security-Policy sem scripts inline; `frame-ancestors 'none'` |
 | Uploads | Tipo real verificado pelos bytes (JPEG/PNG/WebP; SVG recusado), limite de 2 MB, chaves isoladas por loja, até 8 imagens por produto, servidas com `nosniff` e CSP `sandbox` |
 | Manipulação de preço | Totais calculados no servidor; preço e nome dos itens lidos do banco |
+| Custos e margens | Preço de custo só no painel (produtos/indicadores); o custo guardado no pedido nunca é devolvido ao comprador nem na lista de pedidos |
 | Estoque | Gatilhos SQL atômicos: sem estoque negativo, sem baixa duplicada, reposição ao cancelar, transições de status restritas |
 | Vazamento de erros | Erros internos respondem 500 genérico; detalhes só nos logs do Worker |
 | CSV | Proteção contra injeção de fórmulas |
