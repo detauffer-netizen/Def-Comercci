@@ -2,13 +2,14 @@
 // Estratégia "rede primeiro": com internet, sempre a versão mais nova; sem
 // internet, a última versão guardada do painel abre e avisa que está offline.
 // Respostas da API e imagens de lojas nunca são guardadas.
-const CACHE = "def-painel-v2";
+const CACHE = "def-painel-v3";
 const SHELL = [
   "/painel",
   "/css/app.css",
   "/css/painel.css",
   "/js/common.js",
   "/js/painel.js",
+  "/js/barcode.js",
   "/js/twofactor.js",
   "/favicon.svg",
   "/icons/icon-192.png",
