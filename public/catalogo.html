@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Catálogo | Def Commerce</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/catalogo.css">
+<script src="/js/catalogo.js" type="module"></script>
+</head>
+<body>
+<div class="toolbar no-print">
+  <a class="btn btn-ghost btn-sm" id="back">Voltar à vitrine</a>
+  <button class="btn btn-primary btn-sm" id="print">Imprimir ou salvar em PDF</button>
+</div>
+<main class="sheet" id="sheet" aria-busy="true">
+  <header class="cat-head">
+    <span class="cat-logo" id="logo"></span>
+    <div><h1 id="name">Carregando catálogo...</h1><p id="description"></p></div>
+  </header>
+  <div id="sections"></div>
+  <footer class="cat-foot" id="foot"></footer>
+</main>
+</body>
+</html>

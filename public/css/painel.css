@@ -236,3 +236,9 @@
 }
 .print-only { display: none; }
 .image-grid figure .cover-btn { top: auto; bottom: -8px; right: -8px; background: var(--orange-500); color: var(--navy-950); }
+
+.cat-order { list-style: none; padding: 0; margin: 8px 0 12px; display: grid; gap: 6px; }
+.cat-order li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; }
+.cat-order li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.cat-order .btn-icon { width: 34px; min-height: 34px; }
+#category-card { margin-top: 16px; }

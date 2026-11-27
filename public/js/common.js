@@ -140,3 +140,14 @@ export function whatsappLink(phone, text) {
   if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
+
+// Ordem das categorias: a definida pelo lojista primeiro, depois alfabética.
+export function sortCategories(names, order = []) {
+  const rank = new Map(order.map((c, i) => [c.toLocaleLowerCase("pt-BR"), i]));
+  return [...names].sort((a, b) => {
+    const ra = rank.get(a.toLocaleLowerCase("pt-BR")) ?? Infinity;
+    const rb = rank.get(b.toLocaleLowerCase("pt-BR")) ?? Infinity;
+    return ra - rb || a.localeCompare(b, "pt-BR");
+  });
+}
+
