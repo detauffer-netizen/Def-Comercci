@@ -39,7 +39,8 @@ export async function loadSession(db, request) {
               m.role, m.permissions,
               st.id AS store_id, st.name, st.slug, st.whatsapp, st.accent,
               st.description, st.logo_key, st.banner_key, st.status,
-              st.delivery_fee_cents, st.free_delivery_above_cents, st.pickup_enabled
+              st.delivery_fee_cents, st.free_delivery_above_cents, st.pickup_enabled,
+              st.template, st.hours_json, st.announcement
          FROM sessions s
          JOIN users u ON u.id = s.user_id
          JOIN memberships m ON m.user_id = u.id
@@ -74,6 +75,9 @@ export async function loadSession(db, request) {
       delivery_fee_cents: row.delivery_fee_cents,
       free_delivery_above_cents: row.free_delivery_above_cents,
       pickup_enabled: !!row.pickup_enabled,
+      template: row.template || "geral",
+      hours_json: row.hours_json || "",
+      announcement: row.announcement || "",
     },
   };
 }

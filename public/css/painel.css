@@ -427,3 +427,13 @@
 .draft.error .status { color: var(--danger); }
 .draft.done { opacity: .6; }
 .product-item { min-width: 0; }
+
+/* Aparência e horário da vitrine */
+.grow-field { flex: 1; min-width: 0; margin: 0; }
+.look-set .input-with-btn { align-items: flex-end; margin-bottom: 10px; }
+.preview-link { margin-bottom: 2px; white-space: nowrap; }
+.hours-editor { display: grid; gap: 6px; margin-bottom: 6px; }
+.hours-row { display: grid; grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) minmax(0, 1fr); gap: 6px; align-items: center; }
+.hours-row .check { min-height: 36px; font-size: 14px; }
+.hours-row input[type=time] { min-height: 38px; border: 1px solid #cdd7e6; border-radius: var(--radius-sm); padding: 0 6px; font: inherit; width: 100%; min-width: 0; }
+.hours-row input:disabled { opacity: .45; }

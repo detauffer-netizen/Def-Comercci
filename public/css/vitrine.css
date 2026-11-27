@@ -24,7 +24,7 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .section-title { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; margin: 18px 0 10px; }
 .section-title .icon { color: var(--orange-500); }
 
-.products { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 700px) { .products { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1000px) { .products { grid-template-columns: repeat(4, 1fr); gap: 16px; } }
 .products.featured { grid-auto-flow: column; grid-auto-columns: minmax(160px, 44%); grid-template-columns: none; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
@@ -105,3 +105,42 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 
 .cart-consent { align-items: flex-start; font-size: 14px; margin-top: 4px; }
 .cart-consent input { flex: none; margin-top: 2px; }
+
+/* Vitrine premium */
+.announce { background: var(--accent); color: #fff; text-align: center; font-weight: 700; font-size: 14px; padding: 8px 16px; overflow-wrap: anywhere; }
+.preview-bar { background: var(--navy-900); color: #fff; text-align: center; font-size: 13px; padding: 6px 16px; }
+.store-hours { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 14px; font-weight: 600; }
+.store-hours .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); flex: none; }
+.store-hours.open .dot { background: var(--ok); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.filters .chips { padding-top: 4px; }
+.filter-selects { display: flex; gap: 8px; flex: 1 1 260px; min-width: 0; }
+.filter-selects select { flex: 1; min-width: 0; min-height: 40px; padding: 0 8px; border-radius: 999px; font-size: 14px; }
+.product { position: relative; }
+.fav-btn { color: var(--muted); }
+.fav-btn[aria-pressed=true] { color: #e0245e; }
+.fav-btn[aria-pressed=true] .icon { fill: currentColor; }
+.product .fav-btn { position: absolute; top: 8px; right: 8px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; background: rgb(255 255 255 / 92%); border: 0; display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 8px rgb(11 31 58 / 15%); }
+.product-media .tag-new { top: 38px; }
+.related { margin-top: 16px; }
+.related h3 { font-size: 1rem; margin: 0 0 8px; }
+.related-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.related-item { display: grid; gap: 4px; text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 6px; background: #fff; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.related-item .thumb { aspect-ratio: 1; border-radius: 8px; background: var(--bg) center/cover no-repeat; }
+.related-item span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Modelos por segmento: mesma estrutura, apresentação diferente */
+body.tpl-roupas .product-media { aspect-ratio: 3 / 4; }
+body.tpl-roupas .product-name { font-weight: 600; letter-spacing: .01em; }
+body.tpl-cosmeticos .product { border-radius: 22px; }
+body.tpl-cosmeticos .product-media { aspect-ratio: 4 / 5; border-radius: 18px; }
+body.tpl-cosmeticos .btn { border-radius: 999px; }
+body.tpl-eletronicos .product-media { background-size: contain; background-color: #fff; }
+body.tpl-eletronicos .product { border-radius: 10px; }
+body.tpl-eletronicos .price { font-size: 1.15rem; }
+body.tpl-utilidades .product-media { background-size: contain; background-color: #fff; }
+body.tpl-ferramentas .product { border-radius: 6px; border-width: 2px; }
+body.tpl-ferramentas .product-media { background-size: contain; background-color: #fff; border-radius: 4px; }
+body.tpl-ferramentas .product-name { text-transform: uppercase; font-size: 13px; letter-spacing: .03em; }
+body.tpl-moveis .product-media { aspect-ratio: 4 / 3; }
+@media (max-width: 520px) { body.tpl-moveis .products { grid-template-columns: minmax(0, 1fr); } }

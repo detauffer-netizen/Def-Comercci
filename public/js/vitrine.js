@@ -16,6 +16,52 @@ const TOKEN_KEY = `def-cart-token:${slug}`;
 const reminder = { token: null, saved: false, timer: null };
 
 const cartKey = (product, variant) => `${product.id}|${variant?.id || ""}`;
+// Favoritos ficam só neste aparelho.
+const FAV_KEY = `def-fav:${slug}`;
+const quick = new Set(); // filtros rápidos: promo, new, fav
+let favorites = new Set();
+try { favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || "[]")); } catch { /* opcional */ }
+const TEMPLATES = ["geral", "roupas", "eletronicos", "utilidades", "ferramentas", "moveis", "cosmeticos"];
+
+function toggleFavorite(p) {
+  if (favorites.has(p.id)) favorites.delete(p.id);
+  else favorites.add(p.id);
+  try { localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); } catch { /* opcional */ }
+  renderProducts();
+  updateFavButton();
+}
+
+function favButton(p) {
+  const on = favorites.has(p.id);
+  return h("button", { type: "button", class: "fav-btn", "aria-pressed": String(on), "aria-label": `${on ? "Tirar dos favoritos" : "Favoritar"}: ${p.name}`, onclick: () => toggleFavorite(p) }, icon("heart"));
+}
+
+function updateFavButton() {
+  if (!current) return;
+  const on = favorites.has(current.id);
+  $("pd-fav").setAttribute("aria-pressed", String(on));
+  $("pd-fav").setAttribute("aria-label", on ? "Tirar dos favoritos" : "Favoritar");
+}
+
+// Horário de funcionamento no fuso de Brasília (UTC-3).
+const WEEK = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+function hoursStatus(hours, now = new Date()) {
+  if (!hours?.length) return null;
+  const local = new Date(now.getTime() - 3 * 3600 * 1000);
+  const day = local.getUTCDay();
+  const time = local.toISOString().slice(11, 16);
+  const today = hours.filter((s) => s.d === day);
+  const openSlot = today.find((s) => s.open <= time && time < s.close);
+  if (openSlot) return { open: true, text: `Aberto agora · fecha às ${openSlot.close}` };
+  const later = today.find((s) => time < s.open);
+  if (later) return { open: false, text: `Fechado agora · abre hoje às ${later.open}` };
+  for (let i = 1; i <= 7; i++) {
+    const d = (day + i) % 7;
+    const next = hours.find((s) => s.d === d);
+    if (next) return { open: false, text: `Fechado agora · abre ${i === 1 ? "amanhã" : WEEK[d]} às ${next.open}` };
+  }
+  return null;
+}
 
 function resolve(key) {
   const [pid, vid] = key.split("|");
@@ -133,7 +179,9 @@ function productCard(p) {
   return h("article", { class: `product ${soldOut ? "soldout" : ""}`, id: `p-${p.id}` },
     h("button", { class: "product-media", style: cover ? { backgroundImage: `url("${cover}")` } : {}, "aria-label": `Ver detalhes de ${p.name}`, onclick: () => openProduct(p) },
       cover ? null : icon("image"),
-      discount ? h("span", { class: "badge badge-orange tag", text: `-${discount}%` }) : soldOut ? h("span", { class: "badge badge-danger tag", text: "Esgotado" }) : null),
+      discount ? h("span", { class: "badge badge-orange tag", text: `-${discount}%` }) : soldOut ? h("span", { class: "badge badge-danger tag", text: "Esgotado" }) : null,
+      p.is_new && !soldOut ? h("span", { class: `badge tag ${discount ? "tag-new" : ""}`, text: "Novo" }) : null),
+    favButton(p),
     h("div", { class: "product-body" },
       h("button", { class: "product-name", text: p.name, onclick: () => openProduct(p) }),
       priceNode(p),
@@ -142,19 +190,35 @@ function productCard(p) {
 
 function visibleProducts() {
   const q = $("search").value.trim().toLowerCase();
-  return store.products.filter((p) => (!category || p.category === category) &&
-    (!q || `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(q)));
+  const [min, max] = ($("price-range").value || "-").split("-").map((x) => (x === "" ? null : Number(x)));
+  const list = store.products.filter((p) => (!category || p.category === category) &&
+    (!q || `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(q)) &&
+    (!quick.has("promo") || p.final_price_cents < p.price_cents) &&
+    (!quick.has("new") || p.is_new) &&
+    (!quick.has("fav") || favorites.has(p.id)) &&
+    (min === null || p.final_price_cents >= min) && (max === null || p.final_price_cents < max));
+  const sort = $("sort").value;
+  const byPrice = (a, b) => a.final_price_cents - b.final_price_cents;
+  if (sort === "price-asc") list.sort(byPrice);
+  if (sort === "price-desc") list.sort((a, b) => byPrice(b, a));
+  if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  if (sort === "new") list.sort((a, b) => Number(b.is_new) - Number(a.is_new));
+  // Esgotados vão para o fim, mas continuam visíveis.
+  return list.sort((a, b) => Number(a.stock === 0) - Number(b.stock === 0));
 }
 
 function renderProducts() {
   const list = visibleProducts();
-  const filtering = !!(category || $("search").value.trim());
+  const filtering = !!(category || $("search").value.trim() || quick.size || $("price-range").value || $("sort").value);
+  const favChip = document.querySelector('#quick-filters [data-filter="fav"]');
+  favChip.textContent = favorites.size ? `Favoritos (${favorites.size})` : "Favoritos";
   const featured = store.products.filter((p) => p.featured);
   $("featured-section").hidden = filtering || !featured.length;
   $("featured").replaceChildren(...(filtering ? [] : featured.map(productCard)));
-  $("all-title").textContent = category || ($("search").value.trim() ? "Resultados da busca" : "Todos os produtos");
+  $("all-title").textContent = category || ($("search").value.trim() ? "Resultados da busca" : quick.has("fav") ? "Seus favoritos" : quick.has("promo") ? "Ofertas" : quick.has("new") ? "Novidades" : "Todos os produtos");
   if (!list.length) {
-    $("products").replaceChildren(h("p", { class: "empty", style: { gridColumn: "1/-1" }, text: store.products.length ? "Nenhum produto encontrado." : "Esta loja ainda não publicou produtos." }));
+    const none = !store.products.length ? "Esta loja ainda não publicou produtos." : quick.has("fav") && !favorites.size ? "Toque no coração dos produtos para guardá-los aqui." : "Nenhum produto encontrado com esses filtros.";
+    $("products").replaceChildren(h("p", { class: "empty", style: { gridColumn: "1/-1" }, text: none }));
   } else {
     $("products").replaceChildren(...list.map(productCard));
   }
@@ -230,6 +294,13 @@ function openProduct(p) {
   currentVariant = p.variants.length === 1 && p.variants[0].stock > 0 ? p.variants[0] : null;
   renderVariantChoice();
   $("pd-description").textContent = p.description || "";
+  updateFavButton();
+  const related = store.products.filter((x) => x.id !== p.id && x.stock > 0 && p.category && x.category === p.category).slice(0, 4);
+  const fill = related.length >= 2 ? related : [...related, ...store.products.filter((x) => x.id !== p.id && x.stock > 0 && x.featured && !related.includes(x))].slice(0, 4);
+  $("pd-related-box").hidden = !fill.length;
+  $("pd-related").replaceChildren(...fill.map((x) => h("button", { type: "button", class: "related-item", onclick: () => openProduct(x) },
+    h("span", { class: "thumb", style: x.images[0] ? { backgroundImage: `url("${x.images[0]}")` } : {} }),
+    h("span", { text: x.name }), h("strong", { text: money(x.final_price_cents) }))));
 
   // Cada produto tem endereço próprio (com título e prévia gerados no servidor).
   history.replaceState(null, "", productPath(p));
@@ -349,6 +420,7 @@ function orderMessage(order, data) {
     order.fulfillment === "pickup" ? "Retirada na loja" : null,
     order.fulfillment === "delivery" ? `Entrega em: ${order.address}` : null,
     data.notes ? `Observações: ${data.notes}` : null,
+    order.tracking_url ? `Acompanhe o pedido: ${location.origin}${order.tracking_url}` : null,
   ].filter((l) => l !== null).join("\n");
 }
 
@@ -384,6 +456,7 @@ async function checkout(event) {
       location.href = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent(orderMessage(order, data))}`;
     } else {
       toast(`Pedido #${order.code} enviado! A loja entrará em contato.`);
+      if (order.tracking_url) setTimeout(() => { location.href = order.tracking_url; }, 1500);
     }
   } catch (error) {
     showError(error.message);
@@ -427,6 +500,23 @@ async function start() {
     return;
   }
   document.documentElement.style.setProperty("--accent", store.accent);
+  // ?modelo= mostra a prévia de outro modelo sem salvar (usado no painel).
+  const preview = new URLSearchParams(location.search).get("modelo");
+  const template = TEMPLATES.includes(preview) ? preview : store.template;
+  document.body.classList.add(`tpl-${template || "geral"}`);
+  if (preview && TEMPLATES.includes(preview)) {
+    $("preview-bar").textContent = "Prévia do modelo: salve em Minha loja para aplicar.";
+    $("preview-bar").hidden = false;
+  }
+  $("announce").textContent = store.announcement || "";
+  $("announce").hidden = !store.announcement;
+  const hours = hoursStatus(store.hours);
+  if (hours) {
+    const line = $("store-hours");
+    line.classList.toggle("open", hours.open);
+    line.replaceChildren(h("span", { class: "dot" }), hours.text);
+    line.hidden = false;
+  }
   storeTitle = `${store.name} | Catálogo`;
   if (!location.pathname.includes("/p/")) document.title = storeTitle;
   document.querySelector('meta[name="description"]').setAttribute("content", store.description || `Catálogo da ${store.name}. Faça seu pedido pelo WhatsApp.`);
@@ -457,6 +547,17 @@ async function start() {
 }
 
 $("search").addEventListener("input", renderProducts);
+$("price-range").addEventListener("change", renderProducts);
+$("sort").addEventListener("change", renderProducts);
+$("quick-filters").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-filter]");
+  if (!chip) return;
+  const f = chip.dataset.filter;
+  if (quick.has(f)) quick.delete(f); else quick.add(f);
+  chip.setAttribute("aria-pressed", String(quick.has(f)));
+  renderProducts();
+});
+$("pd-fav").addEventListener("click", () => current && toggleFavorite(current));
 $("cart-bar").addEventListener("click", () => $("cart-dialog").showModal());
 $("checkout").addEventListener("submit", checkout);
 for (const name of ["customer_name", "customer_phone", "cart_consent"]) {

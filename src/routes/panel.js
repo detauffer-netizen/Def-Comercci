@@ -23,7 +23,18 @@ function storeView(store) {
     delivery_fee_cents: store.delivery_fee_cents ?? null,
     free_delivery_above_cents: store.free_delivery_above_cents ?? null,
     pickup_enabled: !!store.pickup_enabled,
+    template: store.template || "geral",
+    hours: parseHours(store.hours_json),
+    announcement: store.announcement || "",
   };
+}
+
+export function parseHours(text) {
+  try {
+    return v.hours(JSON.parse(text || "[]"));
+  } catch {
+    return [];
+  }
 }
 
 export function me(request, env, session) {
@@ -52,10 +63,15 @@ export async function updateSettings(request, env, session) {
   const deliveryFee = fee === null || fee === undefined || fee === "" ? null : v.cents(fee, "taxa de entrega");
   const freeAbove = free === null || free === undefined || free === "" ? null : v.cents(free, "frete grátis a partir de");
   const pickup = v.flag(pick("pickup_enabled"));
+  const template = "template" in body ? String(body.template) : session.store.template || "geral";
+  if (!v.TEMPLATES.includes(template)) throw new HttpError(400, "Modelo de vitrine inválido");
+  const hoursJson = "hours" in body ? JSON.stringify(v.hours(body.hours)) : session.store.hours_json || "";
+  const announcement = "announcement" in body ? v.cleanText(body.announcement, 140) : session.store.announcement || "";
   await env.DB.prepare(
-    "UPDATE stores SET name=?,description=?,whatsapp=?,accent=?,delivery_fee_cents=?,free_delivery_above_cents=?,pickup_enabled=? WHERE id=?",
+    `UPDATE stores SET name=?,description=?,whatsapp=?,accent=?,delivery_fee_cents=?,free_delivery_above_cents=?,pickup_enabled=?,
+                       template=?,hours_json=?,announcement=? WHERE id=?`,
   )
-    .bind(name, description, whatsapp, accent, deliveryFee, freeAbove, pickup, session.store.id)
+    .bind(name, description, whatsapp, accent, deliveryFee, freeAbove, pickup, template, hoursJson, announcement, session.store.id)
     .run();
   await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "store.settings" });
   return json({ ok: true });

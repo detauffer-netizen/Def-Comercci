@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1f3a">
+<meta name="robots" content="noindex">
+<title>Acompanhar pedido | Def Commerce</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/pedido.css">
+</head>
+<body>
+<main class="track" id="track" aria-busy="true">
+  <header class="track-store">
+    <span class="track-logo" id="logo"></span>
+    <div><small class="muted">Pedido feito em</small><h1 id="store-name">Carregando pedido...</h1></div>
+  </header>
+  <section class="card" id="status-card" hidden>
+    <p class="muted" id="order-code"></p>
+    <h2 id="status-label"></h2>
+    <ol class="steps-line" id="steps"></ol>
+    <p class="muted" id="status-note"></p>
+  </section>
+  <section class="card" id="items-card" hidden>
+    <h2>Itens</h2>
+    <div id="items"></div>
+    <div id="totals" class="totals"></div>
+  </section>
+  <p id="error" class="empty" hidden></p>
+  <div class="track-actions" id="actions" hidden>
+    <a class="btn btn-primary" id="talk" target="_blank" rel="noopener">Falar com a loja no WhatsApp</a>
+    <a class="btn btn-ghost" id="back">Voltar à vitrine</a>
+  </div>
+  <p class="track-privacy muted">Esta página mostra só o andamento do pedido. Telefone, endereço e observações não aparecem aqui.</p>
+</main>
+<script type="module" src="/js/pedido.js"></script>
+</body>
+</html>
