@@ -13,7 +13,7 @@ export function effectivePrice(product) {
 async function activeStore(db, slug) {
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) return null;
   return db
-    .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key FROM stores WHERE slug=? AND status='active'")
+    .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key,delivery_fee_cents,free_delivery_above_cents,pickup_enabled FROM stores WHERE slug=? AND status='active'")
     .bind(slug)
     .first();
 }
@@ -59,7 +59,7 @@ export async function storefront(request, env, params) {
     .prepare(
       `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured
          FROM products WHERE store_id=? AND active=1
-        ORDER BY featured DESC, name COLLATE NOCASE`,
+        ORDER BY featured DESC, position, name COLLATE NOCASE`,
     )
     .bind(store.id)
     .all();
@@ -77,6 +77,7 @@ export async function storefront(request, env, params) {
       description: store.description,
       logo_url: imageUrl(store.logo_key),
       banner_url: imageUrl(store.banner_key),
+      delivery: deliveryOptions(store),
       products: products.results.map((p) => {
         const options = (variants.get(p.id) || []).map((x) => ({
           id: x.id, name: x.name, stock: x.stock, final_price_cents: variantPrice(p, x),
@@ -167,6 +168,30 @@ export async function couponDiscount(db, storeId, rawCode, subtotal) {
   return { coupon, discount };
 }
 
+export function deliveryOptions(store) {
+  return {
+    pickup: !!store.pickup_enabled,
+    delivery: store.delivery_fee_cents !== null && store.delivery_fee_cents !== undefined,
+    fee_cents: store.delivery_fee_cents ?? 0,
+    free_above_cents: store.free_delivery_above_cents ?? null,
+  };
+}
+
+// Forma de receber o pedido. Sem opções configuradas, fica "a combinar".
+function fulfillmentFor(store, body, amount, { requireAddress = true } = {}) {
+  const options = deliveryOptions(store);
+  if (!options.pickup && !options.delivery) return { fulfillment: "", fee: 0, address: "" };
+  const fulfillment = body.fulfillment;
+  if (fulfillment === "pickup" && options.pickup) return { fulfillment, fee: 0, address: "" };
+  if (fulfillment === "delivery" && options.delivery) {
+    const address = v.cleanText(body.address, 300, { multiline: true });
+    if (requireAddress && address.length < 8) throw new HttpError(400, "Informe o endereço de entrega");
+    const free = options.free_above_cents !== null && amount >= options.free_above_cents;
+    return { fulfillment, fee: free ? 0 : options.fee_cents, address };
+  }
+  throw new HttpError(400, "Escolha entre retirar na loja ou receber em casa");
+}
+
 export async function orderPreview(request, env, params) {
   const db = env.DB;
   await rateLimitByIp(db, request, "order-preview", 60);
@@ -176,11 +201,15 @@ export async function orderPreview(request, env, params) {
   const { subtotal } = await priceItems(db, store, body.items);
   try {
     const { coupon, discount } = await couponDiscount(db, store.id, body.coupon_code, subtotal);
-    return json({ valid: true, subtotal_cents: subtotal, discount_cents: discount, total_cents: subtotal - discount, coupon_code: coupon?.code || "" });
+    const ship = body.fulfillment ? fulfillmentFor(store, body, subtotal - discount, { requireAddress: false }) : { fee: 0 };
+    return json({
+      valid: true, subtotal_cents: subtotal, discount_cents: discount, delivery_fee_cents: ship.fee,
+      total_cents: subtotal - discount + ship.fee, coupon_code: coupon?.code || "",
+    });
   } catch (error) {
     // Cupom recusado é uma resposta normal da prévia, não um erro da requisição.
     if (error instanceof HttpError && error.status === 400) {
-      return json({ valid: false, error: error.message, subtotal_cents: subtotal, discount_cents: 0, total_cents: subtotal, coupon_code: "" });
+      return json({ valid: false, error: error.message, subtotal_cents: subtotal, discount_cents: 0, delivery_fee_cents: 0, total_cents: subtotal, coupon_code: "" });
     }
     throw error;
   }
@@ -197,6 +226,7 @@ export async function createOrderRequest(request, env, params) {
   const customerPhone = v.phone(body.customer_phone);
   const notes = v.cleanText(body.notes, 500, { multiline: true });
   const { coupon, discount } = await couponDiscount(db, store.id, body.coupon_code, subtotal);
+  const ship = fulfillmentFor(store, body, subtotal - discount);
   // Consome o uso do cupom de forma atômica: dois pedidos simultâneos não
   // passam do limite.
   if (coupon) {
@@ -205,15 +235,17 @@ export async function createOrderRequest(request, env, params) {
     ).bind(coupon.id, store.id).run();
     if (!used.meta.changes) throw new HttpError(409, "Este cupom acabou de atingir o limite de usos");
   }
-  const total = subtotal - discount;
+  const total = subtotal - discount + ship.fee;
   const orderId = crypto.randomUUID();
   try {
     await db
       .prepare(
-        `INSERT INTO orders(id,store_id,items_json,total_cents,subtotal_cents,discount_cents,coupon_code,customer_name,customer_phone,notes)
-         VALUES(?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO orders(id,store_id,items_json,total_cents,subtotal_cents,discount_cents,coupon_code,customer_name,customer_phone,notes,
+                            fulfillment,delivery_fee_cents,address)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
-      .bind(orderId, store.id, JSON.stringify(items), total, subtotal, discount, coupon?.code || "", customerName, customerPhone, notes)
+      .bind(orderId, store.id, JSON.stringify(items), total, subtotal, discount, coupon?.code || "", customerName, customerPhone, notes,
+        ship.fulfillment, ship.fee, ship.address)
       .run();
   } catch (error) {
     if (coupon) await db.prepare("UPDATE coupons SET uses=uses-1 WHERE id=? AND uses>0").bind(coupon.id).run();
@@ -221,6 +253,7 @@ export async function createOrderRequest(request, env, params) {
   }
   return json({
     id: orderId, code: orderId.slice(0, 8).toUpperCase(), subtotal_cents: subtotal, discount_cents: discount,
-    coupon_code: coupon?.code || "", total_cents: total, items,
+    coupon_code: coupon?.code || "", fulfillment: ship.fulfillment, delivery_fee_cents: ship.fee, address: ship.address,
+    total_cents: total, items,
   }, 201);
 }

@@ -22,7 +22,7 @@ export async function exportData(request, env, session) {
     products: await all(db, "SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active FROM products WHERE store_id=?", id),
     variants: await all(db, "SELECT id,product_id,name,sku,price_cents,stock,active,position FROM product_variants WHERE store_id=?", id),
     images: await all(db, "SELECT product_id,r2_key,content_type,bytes,created_at FROM product_images WHERE store_id=?", id),
-    orders: (await all(db, "SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes FROM orders WHERE store_id=? ORDER BY created_at", id))
+    orders: (await all(db, "SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes,fulfillment,delivery_fee_cents,address FROM orders WHERE store_id=? ORDER BY created_at", id))
       .map(({ items_json, ...o }) => ({ ...o, items: JSON.parse(items_json) })),
     coupons: await all(db, "SELECT code,kind,value,min_order_cents,max_uses,uses,expires_at,active,created_at FROM coupons WHERE store_id=?", id),
     stock_movements: await all(db, "SELECT product_id,product_name,delta,stock_after,created_at FROM stock_movements WHERE store_id=? ORDER BY id", id),
@@ -81,7 +81,7 @@ export async function deleteStore(request, env, session) {
 export async function forgetCustomer(request, env, session, params) {
   const phone = v.phone(params.phone);
   const result = await env.DB.prepare(
-    "UPDATE orders SET customer_name='Cliente removido', customer_phone='', notes='' WHERE store_id=? AND customer_phone=?",
+    "UPDATE orders SET customer_name='Cliente removido', customer_phone='', notes='', address='' WHERE store_id=? AND customer_phone=?",
   ).bind(session.store.id, phone).run();
   if (!result.meta.changes) throw new HttpError(404, "Cliente não encontrado");
   await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "customer.anonymized", detail: `${result.meta.changes} pedido(s)` });

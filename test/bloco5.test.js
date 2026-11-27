@@ -43,7 +43,7 @@ describe("cupons de desconto", () => {
     await m.client.post("/api/coupons", { code: "DEZ", kind: "percent", value: 10 });
     await m.client.post("/api/coupons", { code: "MENOS30", kind: "fixed", value: 3000 });
     const preview = await buyer(env).post(`/api/order-preview/${m.slug}`, { items: [{ id, quantity: 2 }], coupon_code: "dez" });
-    assert.deepEqual(preview.data, { valid: true, subtotal_cents: 20000, discount_cents: 2000, total_cents: 18000, coupon_code: "DEZ" });
+    assert.deepEqual(preview.data, { valid: true, subtotal_cents: 20000, discount_cents: 2000, delivery_fee_cents: 0, total_cents: 18000, coupon_code: "DEZ" });
     const refused = await buyer(env).post(`/api/order-preview/${m.slug}`, { items: [{ id, quantity: 1 }], coupon_code: "NAOEXISTE" });
     assert.equal(refused.status, 200);
     assert.equal(refused.data.valid, false);

@@ -38,7 +38,8 @@ export async function loadSession(db, request) {
       `SELECT s.token_hash, u.id AS user_id, u.email, u.name AS user_name, u.must_change_password,
               m.role, m.permissions,
               st.id AS store_id, st.name, st.slug, st.whatsapp, st.accent,
-              st.description, st.logo_key, st.banner_key, st.status
+              st.description, st.logo_key, st.banner_key, st.status,
+              st.delivery_fee_cents, st.free_delivery_above_cents, st.pickup_enabled
          FROM sessions s
          JOIN users u ON u.id = s.user_id
          JOIN memberships m ON m.user_id = u.id
@@ -70,6 +71,9 @@ export async function loadSession(db, request) {
       logo_key: row.logo_key,
       banner_key: row.banner_key,
       status: row.status,
+      delivery_fee_cents: row.delivery_fee_cents,
+      free_delivery_above_cents: row.free_delivery_above_cents,
+      pickup_enabled: !!row.pickup_enabled,
     },
   };
 }
