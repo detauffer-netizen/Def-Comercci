@@ -225,6 +225,7 @@ async function loadHome() {
   const showProducts = can("products");
   $("dash-card").hidden = !showReports;
   $("perf-card").hidden = !showReports;
+  $("expense-card").hidden = !showReports;
   if (showReports) {
     loadDashboard().catch(fail);
     loadPerformance(state.perfDays || 30).catch(fail);
@@ -328,18 +329,22 @@ async function loadDashboard(period = state.dashPeriod || "30d", custom = state.
     ? kpi("Lucro bruto estimado", "—", h("span", { class: "delta flat", text: c.sales ? "informe o custo dos produtos" : "sem vendas no período" }))
     : kpi("Lucro bruto estimado", money(c.gross_profit),
       c.cost_coverage < 100 ? h("span", { class: "delta flat", text: `sobre ${c.cost_coverage}% das vendas (itens com custo)` }) : delta(c.gross_profit, d.previous.gross_profit || 0, label));
+  const flat = (text) => h("span", { class: "delta flat", text });
   $("kpis").replaceChildren(
-    kpi("Faturamento", money(c.revenue), delta(c.revenue, d.previous.revenue, label), "highlight"),
+    kpi("Faturamento", money(c.net_revenue), c.returns_cents ? flat(`já descontadas devoluções de ${money(c.returns_cents)}`) : delta(c.revenue, d.previous.revenue, label), "highlight"),
     profit,
+    c.result_cents === null
+      ? kpi("Resultado estimado", "—", flat(c.expenses_cents ? `despesas de ${money(c.expenses_cents)}` : "lucro bruto − despesas"))
+      : kpi("Resultado estimado", money(c.result_cents), flat(`lucro bruto − despesas de ${money(c.expenses_cents)}${c.cost_coverage < 100 ? " · custos incompletos" : ""}`)),
     kpi("Vendas", String(c.sales), delta(c.sales, d.previous.sales, label)),
     kpi("Ticket médio", money(c.average_ticket)),
-    kpi("Pedidos pendentes", String(d.pending_orders)),
-    kpi("Estoque baixo", String(d.stock.restock_count), h("span", { class: "delta flat", text: "itens no mínimo ou abaixo" })),
-    kpi("Investido em estoque", money(d.stock.cost_value), d.stock.products_without_cost ? h("span", { class: "delta flat", text: `${d.stock.products_without_cost} produto(s) sem custo` }) : null),
-    kpi("Estoque a preço de venda", money(d.stock.sale_value), d.stock.potential_profit !== null ? h("span", { class: "delta flat", text: `lucro potencial ${money(d.stock.potential_profit)}` }) : null),
+    kpi("A receber", money(d.receivable.cents), flat(d.receivable.sales ? `${d.receivable.sales} venda(s) a prazo` : "nenhuma venda a prazo em aberto")),
+    kpi("Estoque baixo", String(d.stock.restock_count), flat("itens no mínimo ou abaixo")),
+    kpi("Investido em estoque", money(d.stock.cost_value), flat(`vale ${money(d.stock.sale_value)} a preço de venda${d.stock.products_without_cost ? ` · ${d.stock.products_without_cost} sem custo` : ""}`)),
   );
+  loadExpenses(d.start, d.end).catch(fail);
   const range = d.start === d.end ? formatDay(d.start) : `${formatDay(d.start)} a ${formatDay(d.end)}`;
-  $("dash-note").textContent = `${range} · vendas = pedidos confirmados ou concluídos. Lucro bruto = vendas − custo dos produtos − descontos (sem despesas).`;
+  $("dash-note").textContent = `${range} · vendas = pedidos confirmados ou concluídos. Lucro bruto = vendas − custo dos produtos − descontos − devoluções. Resultado = lucro bruto − despesas registradas (estimativa).`;
   const ICON = { pending: "receipt", restock: "alert", top: "star", stale: "history", cost: "edit", carts: "chat" };
   const usable = d.recommendations.filter((t) => can(t.action.view === "produtos" ? "products" : "orders"));
   if (!usable.length) return empty($("dash-tips"), "check", "Tudo em dia por aqui.");
@@ -963,6 +968,7 @@ async function deleteProduct() {
 async function loadOrders() {
   loading($("order-list"));
   if (state.orderStatus === "abandoned") return loadAbandoned();
+  if (state.orderStatus === "receivable") return loadReceivables();
   const query = state.orderStatus === "pos" ? "?channel=pos" : state.orderStatus ? `?status=${state.orderStatus}` : "";
   state.orders = await api(`/api/orders${query}`);
   renderOrders();
@@ -981,6 +987,9 @@ function renderOrders() {
     const change = (status, label, cls) => h("button", { class: `btn btn-sm ${cls}`, onclick: (e) => setOrderStatus(o, status, e.currentTarget) }, label);
     if (o.status === "pending") actions.push(change("confirmed", "Confirmar e baixar estoque", "btn-blue"), change("cancelled", "Cancelar", "btn-danger"));
     if (o.status === "confirmed") actions.push(change("completed", "Marcar como concluído", "btn-blue"), change("cancelled", "Cancelar e repor estoque", "btn-danger"));
+    if (o.status === "completed" && o.items.some((i) => (i.returned || 0) < i.quantity)) {
+      actions.push(h("button", { class: "btn btn-sm btn-ghost", onclick: () => openReturn(o) }, icon("refresh", "icon icon-sm"), "Devolução"));
+    }
     actions.push(h("button", { class: "btn btn-sm btn-ghost", "aria-label": `Imprimir pedido ${o.code}`, onclick: (e) => printOrder(e.currentTarget.closest(".order")) }, icon("print", "icon icon-sm"), "Imprimir"));
     if (o.customer_phone) {
       const msg = `Olá, ${o.customer_name.split(" ")[0]}! Aqui é da ${store.name}. Sobre o seu pedido #${o.code} (${money(o.total_cents)}): `;
@@ -992,7 +1001,8 @@ function renderOrders() {
           h("div", { class: "muted", text: `#${o.code} · ${formatDate(o.created_at)}${o.customer_phone ? " · " + formatPhone(o.customer_phone) : ""}` })),
         h("span", {}, o.channel === "pos" ? h("span", { class: "badge badge-orange", text: "Balcão" }) : null, " ", h("span", { class: `badge ${st.badge}`, text: o.channel === "pos" && o.status === "completed" ? "Vendido" : st.label }))),
       h("div", { class: "order-items" },
-        ...o.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
+        ...o.items.map((i) => h("div", {}, h("span", {}, `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`, i.returned ? h("span", { class: "returned", text: ` · ${i.returned} devolvido(s)` }) : null), h("span", { text: money(i.price_cents * i.quantity) }))),
+        o.returned_cents ? h("div", { class: "order-discount" }, h("span", { text: "Devoluções" }), h("span", { text: `− ${money(o.returned_cents)}` })) : null,
         o.discount_cents ? h("div", { class: "order-discount" }, h("span", { text: `Cupom ${o.coupon_code}` }), h("span", { text: `− ${money(o.discount_cents)}` })) : null,
         h("div", { style: { fontWeight: "700", marginTop: "6px" } }, h("span", { text: "Total" }), h("span", { text: money(o.total_cents) }))),
       o.fulfillment ? h("p", { class: "order-ship" },
@@ -1290,6 +1300,177 @@ function printReceipt() {
   window.addEventListener("afterprint", done);
   window.print();
   setTimeout(done, 1000);
+}
+
+// ---------- Financeiro: devoluções, contas a receber e despesas ----------
+
+let returning = null;
+function openReturn(order) {
+  returning = { order, qty: new Map() };
+  $("return-form").reset();
+  $("return-error").hidden = true;
+  $("return-title").textContent = `Devolução da venda #${order.code}`;
+  $("return-intro").textContent = "Escolha quantas unidades de cada item voltaram.";
+  renderReturn();
+  $("return-dialog").showModal();
+}
+
+function renderReturn() {
+  const { order, qty } = returning;
+  const factor = order.subtotal_cents ? (order.subtotal_cents - order.discount_cents) / order.subtotal_cents : 1;
+  let value = 0;
+  $("return-items").replaceChildren(...order.items.map((i) => {
+    const key = `${i.id}|${i.variant_id || ""}`;
+    const max = i.quantity - (i.returned || 0);
+    const n = qty.get(key) || 0;
+    value += Math.round(i.price_cents * n * factor);
+    const set = (x) => { qty.set(key, Math.max(0, Math.min(max, x))); renderReturn(); };
+    const label = `${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`;
+    return h("div", { class: "sale-line" },
+      h("div", { class: "name" }, h("strong", { text: label }), h("small", { text: max ? `pode devolver até ${max}` : "já devolvido" })),
+      h("div", { class: "qty" },
+        h("button", { type: "button", class: "btn btn-ghost btn-icon btn-sm", "aria-label": `Diminuir devolução de ${label}`, disabled: !n, onclick: () => set(n - 1) }, "−"),
+        h("output", { text: String(n) }),
+        h("button", { type: "button", class: "btn btn-ghost btn-icon btn-sm", "aria-label": `Aumentar devolução de ${label}`, disabled: n >= max, onclick: () => set(n + 1) }, "+")));
+  }));
+  const credit = Math.min(value, order.receivable_cents || 0);
+  $("return-value").textContent = value
+    ? `Valor da devolução: ${money(value)}${credit ? ` (${money(credit)} abatidos do valor a receber; devolver ${money(value - credit)} ao cliente)` : " — devolva este valor ao cliente"}`
+    : "";
+}
+
+async function confirmReturn(event) {
+  event.preventDefault();
+  const items = [...returning.qty].filter(([, n]) => n > 0).map(([key, quantity]) => {
+    const [id, variant] = key.split("|");
+    return { id, ...(variant ? { variant_id: variant } : {}), quantity };
+  });
+  const err = $("return-error");
+  if (!items.length) {
+    err.textContent = "Escolha pelo menos um item.";
+    err.hidden = false;
+    return;
+  }
+  const f = event.target.elements;
+  await busy($("confirm-return"), async () => {
+    try {
+      const r = await api(`/api/orders/${returning.order.id}/returns`, { method: "POST", body: { items, restock: f.restock.checked, reason: f.reason.value } });
+      $("return-dialog").close();
+      state.productsStale = true;
+      toast(`Devolução registrada: ${money(r.value_cents)}${r.restock ? ", itens de volta ao estoque" : ""}.`);
+      await loadOrders();
+    } catch (error) {
+      if (error.status === 401) return fail(error);
+      err.textContent = error.message;
+      err.hidden = false;
+    }
+  });
+}
+
+let receiving = null;
+async function loadReceivables() {
+  const data = await api("/api/receivables");
+  const head = h("p", { class: "muted abandoned-note", text: `Total a receber: ${money(data.total_cents)} em ${data.items.length} venda(s) a prazo.` });
+  if (!data.items.length) {
+    empty($("order-list"), "check", "Nenhuma venda a prazo em aberto.");
+    return $("order-list").prepend(head);
+  }
+  $("order-list").replaceChildren(head, ...data.items.map((r) => h("article", { class: "order receivable-row" },
+    h("div", { class: "order-top" },
+      h("div", { class: "grow" }, h("strong", { text: r.customer_name }),
+        h("small", { class: "muted", text: `#${r.code} · ${formatDate(r.created_at)}${r.customer_phone ? ` · ${formatPhone(r.customer_phone)}` : ""}` }),
+        r.received.length ? h("small", { class: "muted", text: `Já recebido: ${r.received.map((p) => `${money(p.amount_cents)} (${PAY_LABEL[p.method]})`).join(", ")}` }) : null),
+      h("strong", { text: money(r.receivable_cents) })),
+    h("div", { class: "order-actions" },
+      h("button", { class: "btn btn-sm btn-blue", onclick: () => openReceive(r) }, "Receber"),
+      r.customer_phone ? h("a", { class: "btn btn-sm btn-ghost", target: "_blank", rel: "noopener",
+        href: whatsappLink(r.customer_phone, `Olá, ${r.customer_name.split(" ")[0]}! Aqui é da ${state.me.store.name}. Passando para lembrar do valor de ${money(r.receivable_cents)} da compra #${r.code}. Qualquer dúvida, estou à disposição.`) },
+      icon("chat", "icon icon-sm"), "Lembrar no WhatsApp") : null))));
+}
+
+function openReceive(r) {
+  receiving = r;
+  $("receive-form").reset();
+  $("receive-error").hidden = true;
+  $("receive-intro").textContent = `${r.customer_name} · falta receber ${money(r.receivable_cents)}`;
+  $("receive-form").elements.amount.value = centsToInput(r.receivable_cents);
+  $("receive-dialog").showModal();
+}
+
+async function confirmReceive(event) {
+  event.preventDefault();
+  const f = event.target.elements;
+  const amount = parseMoney(f.amount.value);
+  const err = $("receive-error");
+  if (!amount || Number.isNaN(amount)) {
+    err.textContent = "Informe o valor recebido.";
+    err.hidden = false;
+    return;
+  }
+  try {
+    const r = await api(`/api/receivables/${receiving.id}`, { method: "POST", body: { amount_cents: amount, method: f.method.value } });
+    $("receive-dialog").close();
+    toast(r.receivable_cents ? `Recebido. Ainda falta ${money(r.receivable_cents)}.` : "Conta quitada.");
+    await loadReceivables();
+  } catch (error) {
+    if (error.status === 401) return fail(error);
+    err.textContent = error.message;
+    err.hidden = false;
+  }
+}
+
+async function loadExpenses(start, end) {
+  const data = await api(`/api/expenses?start=${start}&end=${end}`);
+  $("expense-total").textContent = data.items.length ? `${money(data.total_cents)} no período` : "";
+  const f = $("expense-form").elements;
+  if (!f.paid_on.value) f.paid_on.value = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  if (!data.items.length) return empty($("expense-list"), "receipt", "Nenhuma despesa registrada no período.");
+  $("expense-list").replaceChildren(...data.items.map((e) => h("div", { class: "row" },
+    h("div", { class: "grow" }, h("strong", { text: e.description }), h("small", { text: `${formatDay(e.paid_on)}${e.category ? ` · ${e.category}` : ""}` })),
+    h("strong", { text: money(e.amount_cents) }),
+    h("button", { class: "btn btn-ghost btn-icon btn-sm", "aria-label": `Excluir despesa ${e.description}`, onclick: (ev) => busy(ev.currentTarget, async () => {
+      if (!confirm(`Excluir a despesa "${e.description}"?`)) return;
+      await api(`/api/expenses/${e.id}`, { method: "DELETE" });
+      await loadDashboard();
+    }) }, icon("trash", "icon icon-sm")))));
+}
+
+async function saveExpense(event) {
+  event.preventDefault();
+  const f = event.target.elements;
+  const amount = parseMoney(f.amount.value);
+  if (!f.description.value.trim()) return toast("Informe a descrição da despesa.", { error: true });
+  if (!amount || Number.isNaN(amount)) return toast("Informe o valor, por exemplo 35,00.", { error: true });
+  if (!f.paid_on.value) return toast("Informe a data do pagamento.", { error: true });
+  await busy(event.submitter, async () => {
+    await api("/api/expenses", { method: "POST", body: { description: f.description.value, category: f.category.value, amount_cents: amount, paid_on: f.paid_on.value } });
+    toast("Despesa registrada.");
+    const keep = f.paid_on.value;
+    event.target.reset();
+    f.paid_on.value = keep;
+    await loadDashboard();
+  });
+}
+
+// Preço = custo ÷ (1 − (taxas + despesas variáveis + margem) ÷ 100).
+function updateCalc() {
+  const f = $("product-form").elements;
+  const cost = parseMoney(f.cost.value);
+  const pct = (id) => {
+    const value = Number(String($(id).value || "0").replace(",", "."));
+    return Number.isFinite(value) ? value : NaN;
+  };
+  const total = pct("calc-fees") + pct("calc-costs") + pct("calc-margin");
+  const out = $("calc-result");
+  $("calc-apply").hidden = true;
+  if (!cost || Number.isNaN(cost)) return void (out.textContent = "Informe o preço de custo para calcular.");
+  if (Number.isNaN(total) || total < 0) return void (out.textContent = "Use apenas números nos percentuais.");
+  if (total >= 100) return void (out.textContent = "A soma dos percentuais precisa ser menor que 100%.");
+  const price = Math.ceil(cost / (1 - total / 100));
+  state.calcPrice = price;
+  const markup = Math.round(((price - cost) / cost) * 1000) / 10;
+  out.replaceChildren("Preço sugerido: ", h("strong", { text: money(price) }), ` · markup equivalente ${String(markup).replace(".", ",")}%`);
+  $("calc-apply").hidden = false;
 }
 
 async function setOrderStatus(order, status, button) {
@@ -1740,6 +1921,17 @@ $("pay-methods").addEventListener("click", (e) => {
   if (b) setPayMethod(b.dataset.method);
 });
 $("sale-form").addEventListener("submit", finishSale);
+$("return-form").addEventListener("submit", confirmReturn);
+$("receive-form").addEventListener("submit", confirmReceive);
+$("expense-form").addEventListener("submit", saveExpense);
+for (const id of ["calc-fees", "calc-costs", "calc-margin"]) $(id).addEventListener("input", updateCalc);
+$("product-form").elements.cost.addEventListener("input", updateCalc);
+$("price-calc").addEventListener("toggle", updateCalc);
+$("calc-apply").addEventListener("click", () => {
+  $("product-form").elements.price.value = centsToInput(state.calcPrice);
+  updateMargin();
+  toast("Preço aplicado. Revise antes de salvar.");
+});
 $("print-receipt").addEventListener("click", printReceipt);
 $("another-sale").addEventListener("click", () => { resetSale(); $("sale-search").focus(); });
 $("product-search").addEventListener("input", renderProducts);
