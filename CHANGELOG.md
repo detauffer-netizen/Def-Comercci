@@ -2,6 +2,24 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.9.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 6: vitrine premium
+
+### Adicionado
+- **Modelos de vitrine por segmento** (Minha loja → Aparência): Comércio geral, Roupas e moda, Cosméticos e beleza, Eletrônicos, Utilidades e casa, Ferramentas e materiais, Móveis e decoração. Mesma estrutura, apresentação diferente (proporção e enquadramento das fotos, cantos, tipografia, colunas). Botão **Ver prévia** abre a vitrine com o modelo escolhido antes de salvar.
+- **Aviso no topo da vitrine** (ex.: "Frete grátis acima de R$ 150").
+- **Horário de funcionamento** por dia da semana: a vitrine mostra "Aberto agora · fecha às 18:00" ou quando a loja abre (horário de Brasília).
+- **Filtros e ordenação na vitrine**: Ofertas, Novidades (cadastrados nos últimos 30 dias, com selo "Novo"), Favoritos, faixa de preço e ordenar por menor/maior preço, novidades ou nome. Esgotados vão para o fim.
+- **Favoritos** (coração nos produtos), guardados só no aparelho do cliente.
+- **Você também pode gostar**: produtos relacionados (mesma categoria ou destaques) na página do produto.
+- **Acompanhamento do pedido** (`/pedido/<código secreto>`): o link vai na mensagem do WhatsApp; mostra status, itens e total, com o primeiro nome apenas — nunca telefone, endereço ou observações. Página não indexada e sem repassar o endereço (`Referrer-Policy: no-referrer`).
+
+### Corrigido
+- Em "Minha loja", o carregamento da tela podia sobrescrever o que o lojista começava a digitar antes de terminar de carregar.
+
+### Técnico
+- Migração 0021 (`stores.template`, `hours_json`, `announcement`; `orders.public_token` com índice único). Rota pública `GET /api/order-status/:token` com limite por IP.
+- 3 testes de API novos (160 no total) e 1 fluxo E2E novo (35 verificações).
+
 ## [1.8.0-beta] — 2026-11-27 — Pendências: etiquetas, várias fotos e telas estreitas
 
 ### Adicionado
