@@ -24,6 +24,7 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 | Estoque | Gatilhos SQL atômicos: sem estoque negativo, sem baixa duplicada, reposição ao cancelar, transições de status restritas |
 | Vazamento de erros | Erros internos respondem 500 genérico; detalhes só nos logs do Worker |
 | CSV | Proteção contra injeção de fórmulas |
+| Inteligência artificial | Saída do modelo higienizada e limitada; nunca salva sozinha; preço nunca deduzido de foto; produtos de outras lojas nunca entram no prompt; limite diário por loja; dados de compradores não são enviados à IA |
 | Auditoria | `audit_log` por loja (cadastro, login, produtos, pedidos, configurações) e histórico de estoque por gatilho |
 | Transporte | HSTS, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options` |
 
