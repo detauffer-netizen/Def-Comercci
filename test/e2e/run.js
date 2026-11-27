@@ -860,6 +860,46 @@ try {
     await panel.locator(".product-item", { hasText: "Garrafa térmica 500 ml (cópia)" }).waitFor();
   });
 
+  await check("cadastro por várias fotos com IA e etiquetas com código de barras", async () => {
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator("#open-photos").waitFor();
+    await panel.locator("#photos-input").setInputFiles([
+      { name: "a.png", mimeType: "image/png", buffer: PNG },
+      { name: "b.png", mimeType: "image/png", buffer: PNG },
+    ]);
+    const dlg = panel.locator("#drafts-dialog");
+    await dlg.locator(".draft .status", { hasText: "Sugestão pronta" }).nth(1).waitFor();
+    // Sem preço não salva: o preço é sempre do lojista.
+    await dlg.getByRole("button", { name: "Salvar produtos" }).click();
+    await panel.locator("#toast", { hasText: "Informe o preço" }).waitFor();
+    await dlg.getByLabel("Nome do produto").nth(1).fill("Saia Midi Plissada Azul");
+    await dlg.getByLabel("Preço (R$)").nth(0).fill("89,90");
+    await dlg.getByLabel("Preço (R$)").nth(1).fill("94,90");
+    await noHorizontalScroll(panel, "cadastro por fotos");
+    await dlg.getByRole("button", { name: "Salvar produtos" }).click();
+    await panel.locator("#toast", { hasText: "2 produto(s) cadastrado(s)" }).waitFor();
+    const products = await panel.request.get(url + "/api/products").then((r) => r.json());
+    const saia = products.find((p) => p.name === "Saia Midi Plissada Azul");
+    assert.equal(saia.price_cents, 9490);
+    assert.equal(saia.images.length, 1);
+    // Etiquetas: dois produtos, 2 de cada, com código de barras do SKU/EAN.
+    await panel.getByRole("button", { name: "Editar vários" }).click();
+    await panel.getByLabel("Selecionar Garrafa térmica 500 ml", { exact: true }).check();
+    await panel.getByLabel("Selecionar Caneca Balcão").check();
+    await panel.locator("#bulk-action").selectOption("labels");
+    await panel.getByRole("button", { name: "Aplicar" }).click();
+    const labels = panel.locator("#labels-dialog");
+    await labels.getByLabel("Etiquetas por item").fill("2");
+    await labels.locator(".label").nth(3).waitFor();
+    assert.equal(await labels.locator(".label").count(), 4);
+    assert.equal(await labels.locator(".label svg.barcode").count(), 4);
+    assert.match(await labels.locator("#labels-note").textContent(), /4 etiqueta/);
+    await noHorizontalScroll(panel, "etiquetas");
+    await shot(panel, "21-etiquetas-mobile");
+    await labels.locator("[data-close]").first().click();
+    await panel.getByRole("button", { name: "Concluir seleção" }).click();
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();

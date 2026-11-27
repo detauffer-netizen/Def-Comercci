@@ -204,6 +204,7 @@
         <button id="open-restock" class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-alert"/></svg>Preciso repor<b id="restock-count" class="pill" hidden></b></button>
         <button id="open-stock" class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-layers"/></svg>Movimentar estoque</button>
         <button id="bulk-toggle" class="btn btn-ghost btn-sm" aria-pressed="false"><svg class="icon icon-sm"><use href="#i-edit"/></svg>Editar vários</button>
+        <label class="btn btn-ghost btn-sm" id="open-photos" hidden><svg class="icon icon-sm"><use href="#i-spark"/></svg>Cadastrar por fotos<input type="file" id="photos-input" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
         <button id="open-import" class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Importar planilha</button>
         <button id="export-products" class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-download"/></svg>Exportar planilha</button>
       </div>
@@ -217,6 +218,7 @@
             <option value="supplier">Definir fornecedor</option>
             <option value="hide">Ocultar da vitrine</option>
             <option value="show">Mostrar na vitrine</option>
+            <option value="labels">Imprimir etiquetas</option>
           </select></label>
           <label class="field" id="bulk-value-field"><span id="bulk-value-label">Nova categoria</span><input id="bulk-value" maxlength="100"></label>
           <button type="button" class="btn btn-blue btn-sm" id="bulk-apply">Aplicar</button>
@@ -479,6 +481,29 @@
     <div id="import-preview" role="status"></div>
   </div>
   <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button type="button" class="btn btn-primary" id="import-confirm" disabled>Importar</button></div>
+</dialog>
+
+<dialog id="drafts-dialog" class="drafts-dialog" aria-labelledby="drafts-title">
+  <div class="dialog-head"><h2 id="drafts-title">Cadastro por fotos</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <div class="dialog-body">
+    <p class="ai-note" id="drafts-note" role="status"></p>
+    <div id="drafts-list" class="drafts-list"></div>
+  </div>
+  <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button type="button" class="btn btn-primary" id="drafts-save" disabled>Salvar produtos</button></div>
+</dialog>
+
+<dialog id="labels-dialog" class="labels-dialog" aria-labelledby="labels-title">
+  <div class="dialog-head"><h2 id="labels-title">Etiquetas</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <div class="dialog-body">
+    <div class="labels-options">
+      <label class="field"><span>Etiquetas por item</span><input id="labels-qty" type="number" min="1" max="100" value="1" inputmode="numeric"></label>
+      <label class="check"><input type="checkbox" id="labels-stock"> <span>Uma etiqueta por unidade em estoque</span></label>
+      <label class="check"><input type="checkbox" id="labels-price" checked> <span>Mostrar o preço</span></label>
+    </div>
+    <p class="muted labels-note" id="labels-note"></p>
+    <div id="labels-sheet" class="labels-sheet"></div>
+  </div>
+  <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Fechar</button><button type="button" class="btn btn-primary" id="labels-print"><svg class="icon icon-sm"><use href="#i-print"/></svg>Imprimir</button></div>
 </dialog>
 
 <dialog id="scan-dialog" aria-labelledby="scan-title">

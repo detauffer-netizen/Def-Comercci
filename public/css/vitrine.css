@@ -14,7 +14,8 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .shop { max-width: 1120px; margin: 0 auto; padding: 16px; }
 .shop-tools { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 4px; margin-bottom: 8px; }
 .search { display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #cdd7e6; border-radius: 999px; background: #fff; }
-.search input { border: 0; outline: 0; min-height: 46px; flex: 1; font: inherit; background: transparent; }
+.search { min-width: 0; }
+.search input { border: 0; outline: 0; min-height: 46px; flex: 1; min-width: 0; width: 100%; font: inherit; background: transparent; }
 .search .icon { color: var(--muted); }
 .search:focus-within { border-color: var(--accent); }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 4px; scrollbar-width: none; }
