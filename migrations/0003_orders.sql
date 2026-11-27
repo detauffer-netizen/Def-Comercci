@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY,store_id TEXT NOT NULL REFERENCES stores(id),items_json TEXT NOT NULL,total_cents INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS orders_store ON orders(store_id,created_at);
