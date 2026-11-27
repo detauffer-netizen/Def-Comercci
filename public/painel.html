@@ -127,7 +127,29 @@
         <p class="muted">Complete as etapas para começar a receber pedidos.</p>
         <ol id="onboarding-steps" class="steps"></ol>
       </div>
-      <div class="kpis" id="kpis"></div>
+      <section class="card dash" id="dash-card" aria-labelledby="h-dash">
+        <div class="card-head dash-head">
+          <h2 id="h-dash">Resumo da loja</h2>
+          <div class="chips" id="dash-periods" role="group" aria-label="Período do resumo">
+            <button class="chip" data-period="today" aria-pressed="false">Hoje</button>
+            <button class="chip" data-period="yesterday" aria-pressed="false">Ontem</button>
+            <button class="chip" data-period="7d" aria-pressed="false">7 dias</button>
+            <button class="chip" data-period="30d" aria-pressed="true">30 dias</button>
+            <button class="chip" data-period="custom" aria-pressed="false">Escolher datas</button>
+          </div>
+        </div>
+        <form id="dash-custom" class="dash-custom" hidden novalidate>
+          <label class="field"><span>De</span><input type="date" name="start" required></label>
+          <label class="field"><span>Até</span><input type="date" name="end" required></label>
+          <button class="btn btn-blue btn-sm">Aplicar</button>
+        </form>
+        <div class="kpis" id="kpis"></div>
+        <p class="muted dash-note" id="dash-note"></p>
+        <div id="dash-tips-box">
+          <h3 class="top-title">O que fazer agora</h3>
+          <div id="dash-tips" class="tips"></div>
+        </div>
+      </section>
       <section class="card perf" id="perf-card" aria-labelledby="h-perf" hidden>
         <div class="card-head perf-head">
           <h2 id="h-perf">Vendas por dia</h2>
@@ -347,6 +369,17 @@
         <label class="field"><span>Estoque</span><input name="stock" type="number" min="0" step="1" inputmode="numeric" required></label>
         <label class="field"><span>SKU / código</span><input name="sku" maxlength="60" placeholder="Opcional"></label>
       </div>
+      <details class="advanced" id="product-advanced">
+        <summary>Custo, alerta de reposição e mais detalhes</summary>
+        <div class="grid-2">
+          <label class="field"><span>Preço de custo (R$)</span><input name="cost" inputmode="decimal" placeholder="Quanto você pagou"></label>
+          <label class="field"><span>Alerta de reposição (unidades)</span><input name="min_stock" type="number" min="0" step="1" inputmode="numeric" placeholder="Padrão: 3"></label>
+          <label class="field"><span>Código de barras</span><input name="barcode" maxlength="40" inputmode="numeric" placeholder="Opcional"></label>
+          <label class="field"><span>Fornecedor</span><input name="supplier" maxlength="100" list="supplier-options" placeholder="Opcional"><datalist id="supplier-options"></datalist></label>
+          <label class="field"><span>Onde fica na loja</span><input name="location" maxlength="60" placeholder="Ex.: Prateleira A2"></label>
+        </div>
+        <p class="margin-info" id="margin-info" role="status"></p>
+      </details>
       <fieldset class="variants">
         <label class="check"><input type="checkbox" id="has-variants"> <span>Este produto tem opções (tamanho, cor, modelo...)</span></label>
         <div id="variant-editor" hidden>
