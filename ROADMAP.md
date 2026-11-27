@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 96 testes de API/integração + 26 verificações E2E em navegador
+- ✅ 98 testes de API/integração + 27 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -24,8 +24,8 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Variações (tamanho/cor/modelo) com SKU, preço e estoque próprios; gerador de combinações; estoque do produto = soma das variações; gatilhos de pedido atualizados
 - ✅ Ordem manual dos produtos na vitrine (destaques sempre no topo)
 - ✅ Reordenar fotos (escolher a capa)
-- ⬜ Categorias gerenciadas com ordem e imagem
-- ⬜ Catálogo em PDF / página de catálogo para impressão
+- ✅ Ordem das categorias na vitrine e no catálogo
+- ✅ Catálogo para imprimir ou salvar em PDF (`/loja/<loja>/catalogo`), agrupado por categoria
 
 ## Fase 3 — Painel profissional 🟡
 

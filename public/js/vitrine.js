@@ -1,4 +1,4 @@
-import { api, h, icon, money, toast } from "./common.js";
+import { api, h, icon, money, sortCategories, toast } from "./common.js";
 
 const $ = (id) => document.getElementById(id);
 const slug = location.pathname.split("/").filter(Boolean)[1] || "";
@@ -107,7 +107,7 @@ function renderProducts() {
 }
 
 function renderCategories() {
-  const cats = [...new Set(store.products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const cats = sortCategories(new Set(store.products.map((p) => p.category).filter(Boolean)), store.category_order);
   const box = $("categories");
   box.hidden = !cats.length;
   const chip = (value, label) => h("button", {

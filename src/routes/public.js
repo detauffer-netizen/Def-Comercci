@@ -13,7 +13,7 @@ export function effectivePrice(product) {
 async function activeStore(db, slug) {
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) return null;
   return db
-    .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key,delivery_fee_cents,free_delivery_above_cents,pickup_enabled FROM stores WHERE slug=? AND status='active'")
+    .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key,delivery_fee_cents,free_delivery_above_cents,pickup_enabled,category_order FROM stores WHERE slug=? AND status='active'")
     .bind(slug)
     .first();
 }
@@ -78,6 +78,7 @@ export async function storefront(request, env, params) {
       logo_url: imageUrl(store.logo_key),
       banner_url: imageUrl(store.banner_key),
       delivery: deliveryOptions(store),
+      category_order: parseCategoryOrder(store.category_order),
       products: products.results.map((p) => {
         const options = (variants.get(p.id) || []).map((x) => ({
           id: x.id, name: x.name, stock: x.stock, final_price_cents: variantPrice(p, x),
@@ -166,6 +167,15 @@ export async function couponDiscount(db, storeId, rawCode, subtotal) {
     ? Math.floor((subtotal * coupon.value) / 100)
     : Math.min(coupon.value, subtotal);
   return { coupon, discount };
+}
+
+export function parseCategoryOrder(text) {
+  try {
+    const list = JSON.parse(text || "[]");
+    return Array.isArray(list) ? list.filter((x) => typeof x === "string").slice(0, 100) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function deliveryOptions(store) {

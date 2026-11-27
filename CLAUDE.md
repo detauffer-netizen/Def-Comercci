@@ -44,11 +44,11 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.8.0: variações,
+Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.9.0: variações,
 equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
 avisos de pedidos, nova landing, cupons, PWA, monitoramento de erros, entrega e
-retirada, ordem da vitrine, impressão de pedidos e verificação em duas etapas
-(0.8.0). Detalhes e
+retirada, ordem da vitrine, impressão de pedidos, verificação em duas etapas,
+ordem das categorias e catálogo em PDF. Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades

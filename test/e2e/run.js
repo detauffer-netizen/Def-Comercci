@@ -579,6 +579,30 @@ try {
     await ctx.close();
   });
 
+  await check("ordem das categorias e catálogo para imprimir/PDF", async () => {
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator(".product-item").first().waitFor();
+    await panel.locator("#category-card summary").click();
+    await panel.locator("#category-order .cat-order li", { hasText: "Vestidos" }).waitFor();
+    await panel.locator("#category-order").getByRole("button", { name: "Salvar ordem" }).click();
+    await panel.locator("#toast", { hasText: "Ordem das categorias salva" }).waitFor();
+    await panel.goto(url + "/painel#loja");
+    assert.equal(await panel.locator("#catalog-pdf").getAttribute("href"), "/loja/moda-da-ana/catalogo");
+    const page = await mobile.newPage();
+    watch(page, "catálogo");
+    await page.goto(url + "/loja/moda-da-ana/catalogo");
+    await page.locator("#sections .cat-item", { hasText: "Vestido Floral" }).waitFor();
+    assert.match(await page.locator("#sections").textContent(), /Opções: P \/ Azul, M \/ Azul/);
+    assert.match(await page.locator("#foot").textContent(), /\(54\) 99999-0000/);
+    await noHorizontalScroll(page, "catálogo");
+    await shot(page, "17-catalogo-mobile");
+    // Margem para fontes mais largas (CI): também a 320 px.
+    await page.setViewportSize({ width: 320, height: 640 });
+    await noHorizontalScroll(page, "catálogo 320px");
+    await page.getByRole("button", { name: "Imprimir ou salvar em PDF" }).waitFor();
+    await page.close();
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();

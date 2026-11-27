@@ -45,6 +45,8 @@ const ROUTES = [
   ["POST", "/api/team", team.addMember, "owner"],
   ["PATCH", "/api/team/:id", team.updateMember, "owner"],
   ["DELETE", "/api/team/:id", team.removeMember, "owner"],
+  ["GET", "/api/categories/order", panel.getCategoryOrder, "products"],
+  ["PUT", "/api/categories/order", panel.setCategoryOrder, "products"],
   ["GET", "/api/products", panel.listProducts, "products"],
   ["POST", "/api/products", panel.createProduct, "products"],
   ["PATCH", "/api/products/:id", panel.updateProduct, "products"],
@@ -184,6 +186,8 @@ export default {
       const { html, status } = await storefrontPage(env, request, shop[1], shop[2] || null);
       return withHeaders(new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } }));
     }
+    const catalog = path.match(/^\/loja\/([a-z0-9-]{3,60})\/catalogo\/?$/);
+    if (catalog) return asset(env, request, "/catalogo.html", { "X-Robots-Tag": "noindex" });
     if (path === "/privacidade") return asset(env, request, "/privacidade.html");
     if (path === "/termos") return asset(env, request, "/termos.html");
     if (path === "/sitemap.xml") return withHeaders(await sitemap(env, request));

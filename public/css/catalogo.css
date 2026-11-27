@@ -1,0 +1,29 @@
+/* Catálogo para impressão / PDF (A4). */
+body { background: #e9edf4; }
+.toolbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px; background: rgb(233 237 244 / 92%); backdrop-filter: blur(6px); }
+.sheet { max-width: 210mm; margin: 12px auto 32px; background: #fff; padding: 14mm 12mm; box-shadow: 0 10px 30px rgb(7 22 48 / 15%); border-top: 6px solid var(--accent); }
+.cat-head { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 16px; }
+.cat-head h1 { margin: 0; font-size: 1.8rem; }
+.cat-head p { margin: 4px 0 0; color: var(--muted); }
+.cat-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--accent) center / cover no-repeat; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 26px; flex: none; }
+.cat-section { break-inside: auto; margin-bottom: 18px; }
+.cat-section h2 { font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 10px; }
+.cat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sheet { padding: 16px; margin: 0; } }
+.cat-item { break-inside: avoid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 13px; }
+.cat-img { aspect-ratio: 4 / 3; background: #f1f4f9 center / cover no-repeat; }
+.cat-body { padding: 8px 9px 10px; }
+.cat-body strong { display: block; font-size: 13.5px; line-height: 1.3; }
+.cat-price { font-weight: 800; font-size: 14px; margin-top: 3px; }
+.cat-price s { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 4px; }
+.cat-opts, .cat-out { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+.cat-out { color: var(--danger); font-weight: 600; }
+.cat-foot { border-top: 2px solid var(--line); margin-top: 16px; padding-top: 10px; font-size: 13px; color: #33445f; display: flex; flex-wrap: wrap; gap: 6px 20px; justify-content: space-between; }
+@page { size: A4; margin: 10mm; }
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .sheet { box-shadow: none; margin: 0; padding: 0; max-width: none; border-top: 0; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.toolbar .btn { white-space: normal; text-align: center; }

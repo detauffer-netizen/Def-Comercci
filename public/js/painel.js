@@ -1,5 +1,5 @@
 import {
-  ApiError, api, centsToInput, compressImage, downloadCsv, formatDate, formatPhone, h, icon, money, parseMoney, toast, whatsappLink,
+  ApiError, api, centsToInput, sortCategories, compressImage, downloadCsv, formatDate, formatPhone, h, icon, money, parseMoney, toast, whatsappLink,
 } from "./common.js";
 import { mountTwoFactor } from "./twofactor.js";
 
@@ -441,6 +441,7 @@ async function loadProducts() {
   const cats = [...new Set(state.products.map((p) => p.category).filter(Boolean))].sort();
   $("category-options").replaceChildren(...cats.map((c) => h("option", { value: c })));
   if ($("stock-history").closest("details").open) loadStockHistory();
+  if ($("category-card").open) loadCategoryOrder().catch(fail);
 }
 
 function renderProducts() {
@@ -474,6 +475,34 @@ function renderProducts() {
           p.active ? null : h("span", { class: "badge", text: "Oculto" }),
           p.category ? h("span", { class: "badge", text: p.category }) : null)));
   }));
+}
+
+let categoryOrder = [];
+async function loadCategoryOrder() {
+  const saved = (await api("/api/categories/order")).order;
+  const names = [...new Set(state.products.map((p) => p.category).filter(Boolean))];
+  categoryOrder = sortCategories(names, saved);
+  renderCategoryOrder();
+}
+
+function renderCategoryOrder() {
+  const box = $("category-order");
+  if (!categoryOrder.length) return empty(box, "layers", "Cadastre categorias nos produtos para ordená-las aqui.");
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= categoryOrder.length) return;
+    [categoryOrder[i], categoryOrder[j]] = [categoryOrder[j], categoryOrder[i]];
+    renderCategoryOrder();
+  };
+  box.replaceChildren(
+    h("ol", { class: "cat-order" }, ...categoryOrder.map((c, i) => h("li", {},
+      h("span", { text: c }),
+      h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": `Subir ${c}`, disabled: i === 0, onclick: () => move(i, -1) }, "↑"),
+      h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": `Descer ${c}`, disabled: i === categoryOrder.length - 1, onclick: () => move(i, 1) }, "↓")))),
+    h("button", { type: "button", class: "btn btn-blue btn-sm", onclick: (e) => busy(e.currentTarget, async () => {
+      await api("/api/categories/order", { method: "PUT", body: { order: categoryOrder } });
+      toast("Ordem das categorias salva.");
+    }) }, "Salvar ordem"));
 }
 
 async function loadStockHistory() {
@@ -824,6 +853,7 @@ async function loadStore() {
   $("delivery-fields").hidden = !f.delivery_on.checked;
   const url = `${location.origin}/loja/${s.slug}`;
   $("share-url").value = url;
+  $("catalog-pdf").href = `/loja/${s.slug}/catalogo`;
   $("share-whatsapp").href = `https://wa.me/?text=${encodeURIComponent(`Confira o catálogo da ${s.name}: ${url}`)}`;
   for (const kind of ["logo", "banner"]) {
     const preview = $(`${kind}-preview`);
@@ -1150,6 +1180,7 @@ $("image-input").addEventListener("change", async (e) => {
   }
   renderImages();
 });
+$("category-card").addEventListener("toggle", (e) => { if (e.target.open) loadCategoryOrder().catch(fail); });
 $("stock-history").closest("details").addEventListener("toggle", (e) => { if (e.target.open) loadStockHistory().catch(fail); });
 
 $("order-filters").addEventListener("click", (e) => {
