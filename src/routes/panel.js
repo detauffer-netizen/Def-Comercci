@@ -129,7 +129,30 @@ function productInput(body) {
     active: body.active === undefined ? 1 : v.flag(body.active),
     position: body.position === undefined || body.position === "" ? 0 : v.quantity(body.position, "ordem na vitrine", 9999),
     variants,
+    extras: extrasInput(body),
   };
+}
+
+// Campos opcionais do cadastro (custo e dados de compra). Só os enviados são
+// alterados, para que clientes antigos do painel não apaguem o que já existe.
+const EXTRA_FIELDS = ["cost_cents", "min_stock", "barcode", "supplier", "location"];
+function extrasInput(body) {
+  const out = {};
+  if ("cost_cents" in body) out.cost_cents = v.cents(body.cost_cents, "preço de custo", { optional: true });
+  if ("min_stock" in body) out.min_stock = body.min_stock === null || body.min_stock === "" ? null : v.quantity(body.min_stock, "estoque mínimo", 100000);
+  if ("barcode" in body) {
+    const code = String(body.barcode ?? "").replace(/\s/g, "");
+    if (code && !/^[0-9A-Za-z-]{4,40}$/.test(code)) throw new HttpError(400, "Código de barras inválido");
+    out.barcode = code;
+  }
+  if ("supplier" in body) out.supplier = v.cleanText(body.supplier, 100);
+  if ("location" in body) out.location = v.cleanText(body.location, 60);
+  return out;
+}
+
+function extrasSql(extras) {
+  const keys = EXTRA_FIELDS.filter((k) => k in extras);
+  return { set: keys.map((k) => `,${k}=?`).join(""), values: keys.map((k) => extras[k]) };
 }
 
 function skuConflict(error) {
@@ -164,7 +187,8 @@ async function variantStatements(db, storeId, productId, variants) {
 
 export async function listProducts(request, env, session) {
   const rows = await env.DB.prepare(
-    `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active,position
+    `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active,position,
+            cost_cents,min_stock,barcode,supplier,location
        FROM products WHERE store_id=? ORDER BY active DESC, featured DESC, position, name COLLATE NOCASE`,
   ).bind(session.store.id).all();
   const images = await imagesByProduct(env.DB, session.store.id);
@@ -187,10 +211,14 @@ export async function createProduct(request, env, session) {
   const id = crypto.randomUUID();
   const statements = [
     db.prepare(
-      `INSERT INTO products(id,store_id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active,position)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO products(id,store_id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active,position,created_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`,
     ).bind(id, session.store.id, p.name, p.description, p.price_cents, p.promo_price_cents, p.stock, p.category, p.sku, p.featured, p.active, p.position),
   ];
+  const extras = extrasSql(p.extras);
+  if (extras.values.length) {
+    statements.push(db.prepare(`UPDATE products SET id=id${extras.set} WHERE id=? AND store_id=?`).bind(...extras.values, id, session.store.id));
+  }
   if (p.variants?.length) statements.push(...(await variantStatements(db, session.store.id, id, p.variants)));
   await db.batch(statements).catch(skuConflict);
   await audit(db, { storeId: session.store.id, userId: session.user.id, action: "product.created", target: id, detail: p.name });
@@ -210,6 +238,10 @@ export async function updateProduct(request, env, session, params) {
             stock = CASE WHEN EXISTS (SELECT 1 FROM product_variants WHERE product_id=products.id) THEN stock ELSE ? END
       WHERE id=? AND store_id=?`,
   ).bind(p.name, p.description, p.price_cents, p.promo_price_cents, p.category, p.sku, p.featured, p.active, p.position, p.stock, id, session.store.id));
+  const extras = extrasSql(p.extras);
+  if (extras.values.length) {
+    statements.push(db.prepare(`UPDATE products SET id=id${extras.set} WHERE id=? AND store_id=?`).bind(...extras.values, id, session.store.id));
+  }
   await db.batch(statements).catch(skuConflict);
   await audit(db, { storeId: session.store.id, userId: session.user.id, action: "product.updated", target: id, detail: p.name });
   return json({ ok: true });
@@ -318,7 +350,9 @@ export async function listOrders(request, env, session) {
        FROM orders WHERE store_id=? AND (? IS NULL OR status=?)
       ORDER BY created_at DESC LIMIT 200`,
   ).bind(session.store.id, filter, filter).all();
-  return json(rows.results.map(({ items_json, ...o }) => ({ ...o, code: o.id.slice(0, 8).toUpperCase(), items: JSON.parse(items_json) })));
+  return json(rows.results.map(({ items_json, ...o }) => ({
+    ...o, code: o.id.slice(0, 8).toUpperCase(), items: JSON.parse(items_json).map(({ cost_cents: _c, ...i }) => i),
+  })));
 }
 
 export async function updateOrderStatus(request, env, session, params) {
