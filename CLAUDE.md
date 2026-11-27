@@ -35,13 +35,17 @@ Rode os três antes de cada commit que toque código.
 5. **Frontend sem `innerHTML` com dados**: use `h()` de `public/js/common.js` (texto via `textContent`).
 6. **CSP estrita**: nada de `<script>` inline nem `onclick=` no HTML.
 7. **Migrações** apenas aditivas e numeradas (`0009_...sql`). Código antigo deve continuar funcionando com o esquema novo (rollback seguro).
-8. Erros esperados: `throw new HttpError(status, "mensagem em português")`. Erros inesperados viram 500 genérico + `console.error`.
-9. Não exponha segredos; eles vão em `wrangler secret put`, nunca no repositório.
-10. Não ative cobrança, serviços pagos ou preços definitivos sem autorização do proprietário.
+8. **Acesso por rota** é declarado em `ROUTES` (`src/index.js`): `public`, `session`, uma permissão (`products`, `orders`, `customers`, `reports`), `owner` ou `admin`. Toda rota nova precisa declarar o seu.
+9. **Variações:** o estoque de um produto com variações é a soma delas (gatilhos `variant_stock_sync_*`); nunca grave `products.stock` diretamente nesse caso. Itens de pedido podem ter `variant_id`.
+10. **Super administrador** só via `platform_admins` + rotas `/api/admin/*`; nunca misture com `memberships`.
+11. Erros esperados: `throw new HttpError(status, "mensagem em português")`. Erros inesperados viram 500 genérico + `console.error`.
+12. Não exponha segredos; eles vão em `wrangler secret put`, nunca no repositório.
+13. Não ative cobrança, serviços pagos ou preços definitivos sem autorização do proprietário.
 
 ## Estado atual (resumo)
 
-Fases 1 (auditoria/recuperação) concluída; Fases 2, 3 e 8 parcialmente. Detalhes e
+Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais (variações, equipe e super
+administrador entregues na versão 0.3.0). Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades

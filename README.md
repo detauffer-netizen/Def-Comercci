@@ -20,11 +20,13 @@ pedidos pelo WhatsApp e controlarem estoque, clientes e vendas em um painel.
 src/
   index.js            roteamento, cabeçalhos de segurança, páginas
   lib/                http, criptografia, sessão/limites/auditoria, validação, imagens
-  routes/             auth.js (cadastro/login), public.js (vitrine/pedidos), panel.js (painel)
+  routes/             auth.js (cadastro/login), public.js (vitrine/pedidos), panel.js (painel),
+                      team.js (equipe e senha), admin.js (super administrador)
 public/
   index.html          landing page
   painel.html         painel do lojista (SPA leve, sem framework)
   vitrine.html        vitrine pública de cada loja
+  admin.html          super administrador da plataforma
   css/ js/            estilos e scripts (sem scripts inline: CSP estrita)
 migrations/           esquema do D1, em ordem
 test/                 testes de API (node:test + SQLite nativo) e E2E (Playwright)
@@ -40,7 +42,7 @@ banco. O navegador nunca escolhe a loja. Arquivos no R2 ficam em
 Requisitos: Node.js 22.5 ou mais recente.
 
 ```bash
-npm test             # testes de API e integração (31 testes, D1 simulado com SQLite real)
+npm test             # testes de API e integração (55 testes, D1 simulado com SQLite real)
 npm run check        # sintaxe dos scripts e conformidade com a CSP
 npm run test:e2e     # navegador real: cadastro → produto → vitrine → pedido → confirmação
 node test/e2e/server.js   # sobe o sistema localmente em http://localhost:8787
@@ -73,6 +75,16 @@ migra, publica e verifica `/api/health`. Requer os segredos `CLOUDFLARE_API_TOKE
 Imagens: bucket R2 `def-commerce-images` (binding `IMAGES`, já configurado no
 `wrangler.toml`).
 
+## Super administrador
+
+Página `/admin`. O administrador não pertence a nenhuma loja. Para criar o primeiro:
+
+```bash
+node scripts/create-admin.js voce@exemplo.com > /tmp/admin.sql   # pede a senha sem exibi-la
+npx wrangler d1 execute def-commerce-db --remote --file=/tmp/admin.sql
+rm /tmp/admin.sql
+```
+
 ## Rollback
 
 | O que voltar | Como |
@@ -83,6 +95,8 @@ Imagens: bucket R2 `def-commerce-images` (binding `IMAGES`, já configurado no
 
 As migrações são aditivas (só acrescentam colunas e tabelas), então o código
 anterior continua funcionando com o esquema novo: é seguro voltar só o Worker.
+Exceção: depois da 0009, se o Worker voltar para a versão 0.2, produtos que já
+tiverem variações não poderão ser pedidos até a volta da versão nova.
 
 ## Documentação
 
