@@ -35,6 +35,8 @@
   <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.3L12 17.4 6.5 20.4l1-6.3L3 9.7l6.2-.9z"/></symbol>
   <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></symbol>
 </svg>
 
@@ -80,12 +82,12 @@
 <div id="app" class="app" hidden>
   <aside class="sidebar">
     <a class="brand" href="/"><span class="brand-mark">D</span>Def Commerce</a>
-    <nav class="nav" aria-label="Seções do painel">
+    <nav class="nav" id="sidebar-nav" aria-label="Seções do painel">
       <a href="#inicio" data-view="inicio"><svg class="icon"><use href="#i-home"/></svg><span>Início</span></a>
-      <a href="#produtos" data-view="produtos"><svg class="icon"><use href="#i-box"/></svg><span>Produtos</span></a>
-      <a href="#pedidos" data-view="pedidos"><svg class="icon"><use href="#i-receipt"/></svg><span>Pedidos</span><b id="pending-badge" class="nav-count" hidden></b></a>
-      <a href="#clientes" data-view="clientes"><svg class="icon"><use href="#i-users"/></svg><span>Clientes</span></a>
-      <a href="#loja" data-view="loja"><svg class="icon"><use href="#i-store"/></svg><span>Minha loja</span></a>
+      <a href="#produtos" data-view="produtos" data-perm="products"><svg class="icon"><use href="#i-box"/></svg><span>Produtos</span></a>
+      <a href="#pedidos" data-view="pedidos" data-perm="orders"><svg class="icon"><use href="#i-receipt"/></svg><span>Pedidos</span><b id="pending-badge" class="nav-count" hidden></b></a>
+      <a href="#clientes" data-view="clientes" data-perm="customers"><svg class="icon"><use href="#i-users"/></svg><span>Clientes</span></a>
+      <a href="#loja" data-view="loja" data-perm="owner"><svg class="icon"><use href="#i-store"/></svg><span>Minha loja</span></a>
     </nav>
   </aside>
 
@@ -97,6 +99,7 @@
       </div>
       <div class="topbar-actions">
         <a id="open-store" class="btn btn-ghost btn-sm" target="_blank" rel="noopener"><svg class="icon icon-sm"><use href="#i-external"/></svg><span class="hide-sm">Ver vitrine</span></a>
+        <button id="open-password" class="btn btn-ghost btn-icon" title="Alterar senha" aria-label="Alterar senha"><svg class="icon"><use href="#i-key"/></svg></button>
         <button id="logout" class="btn btn-ghost btn-icon" title="Sair" aria-label="Sair"><svg class="icon"><use href="#i-logout"/></svg></button>
       </div>
     </header>
@@ -110,11 +113,11 @@
       </div>
       <div class="kpis" id="kpis"></div>
       <div class="two-col">
-        <div class="card">
+        <div class="card" id="recent-card">
           <div class="card-head"><h2>Pedidos recentes</h2><a href="#pedidos" class="link">Ver todos</a></div>
           <div id="recent-orders"></div>
         </div>
-        <div class="card">
+        <div class="card" id="stock-card">
           <div class="card-head"><h2>Atenção ao estoque</h2><a href="#produtos" class="link">Produtos</a></div>
           <div id="stock-alerts"></div>
         </div>
@@ -197,6 +200,26 @@
               </div>
             </div>
           </div>
+          <div class="card" id="team-card">
+            <h2>Equipe</h2>
+            <p class="muted">Dê acesso ao painel para quem ajuda na loja, escolhendo o que cada pessoa pode fazer.</p>
+            <div id="team-list"></div>
+            <details class="team-add">
+              <summary class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Adicionar pessoa</summary>
+              <form id="team-form" novalidate>
+                <label class="field"><span>Nome</span><input name="name" maxlength="100" required></label>
+                <label class="field"><span>E-mail</span><input name="email" type="email" required></label>
+                <label class="field"><span>Senha provisória</span><input name="password" type="text" minlength="12" maxlength="128" autocomplete="off" required><small>Mínimo de 12 caracteres. Entregue à pessoa; ela troca no primeiro acesso.</small></label>
+                <fieldset class="perms"><legend>Pode acessar</legend>
+                  <label class="check"><input type="checkbox" name="perm" value="products" checked> <span>Produtos e estoque</span></label>
+                  <label class="check"><input type="checkbox" name="perm" value="orders" checked> <span>Pedidos</span></label>
+                  <label class="check"><input type="checkbox" name="perm" value="customers"> <span>Clientes</span></label>
+                  <label class="check"><input type="checkbox" name="perm" value="reports"> <span>Indicadores de vendas</span></label>
+                </fieldset>
+                <button class="btn btn-blue">Adicionar à equipe</button>
+              </form>
+            </details>
+          </div>
           <details class="card history" id="audit-card">
             <summary><svg class="icon"><use href="#i-history"/></svg>Registro de atividades</summary>
             <div id="audit-list"></div>
@@ -224,17 +247,45 @@
         <label class="field"><span>Estoque</span><input name="stock" type="number" min="0" step="1" inputmode="numeric" required></label>
         <label class="field"><span>SKU / código</span><input name="sku" maxlength="60" placeholder="Opcional"></label>
       </div>
+      <fieldset class="variants">
+        <label class="check"><input type="checkbox" id="has-variants"> <span>Este produto tem opções (tamanho, cor, modelo...)</span></label>
+        <div id="variant-editor" hidden>
+          <div class="variant-generator">
+            <label class="field"><span>Opção 1</span><input id="opt1" placeholder="Ex.: P, M, G"></label>
+            <label class="field"><span>Opção 2 (opcional)</span><input id="opt2" placeholder="Ex.: Azul, Preto"></label>
+            <button type="button" class="btn btn-ghost btn-sm" id="gen-variants"><svg class="icon icon-sm"><use href="#i-layers"/></svg>Gerar combinações</button>
+          </div>
+          <div class="variant-head" aria-hidden="true"><span>Variação</span><span>SKU</span><span>Preço (R$)</span><span>Estoque</span><span></span></div>
+          <div id="variant-rows" class="variant-rows"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="add-variant"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Adicionar variação</button>
+          <small class="muted variant-note">O estoque do produto passa a ser a soma das variações. Preço em branco usa o preço do produto.</small>
+        </div>
+      </fieldset>
       <label class="field"><span>Categoria</span><input name="category" maxlength="80" list="category-options" placeholder="Ex.: Camisetas"><datalist id="category-options"></datalist></label>
       <label class="check"><input type="checkbox" name="featured"> <span>Destacar na vitrine</span></label>
       <label class="check"><input type="checkbox" name="active" checked> <span>Visível na vitrine</span></label>
       <p id="product-error" class="form-error" role="alert" hidden></p>
     </div>
     <div class="dialog-foot">
-      <button type="button" id="delete-product" class="btn btn-danger" hidden><svg class="icon icon-sm"><use href="#i-trash"/></svg>Excluir</button>
+      <button type="button" id="delete-product" class="btn btn-danger" aria-label="Excluir produto" hidden><svg class="icon icon-sm"><use href="#i-trash"/></svg><span class="hide-xs">Excluir</span></button>
       <span class="spacer"></span>
       <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
       <button class="btn btn-primary" id="save-product">Salvar produto</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="password-dialog" aria-labelledby="password-title">
+  <form id="password-form" novalidate>
+    <div class="dialog-head"><h2 id="password-title">Alterar senha</h2><button type="button" class="btn btn-ghost btn-icon" id="password-close" aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <p id="password-intro" class="muted" hidden>Por segurança, defina uma senha pessoal antes de começar. A senha provisória deixará de funcionar.</p>
+      <label class="field"><span>Senha atual</span><input name="current_password" type="password" autocomplete="current-password" required></label>
+      <label class="field"><span>Nova senha</span><input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small>Mínimo de 12 caracteres.</small></label>
+      <label class="field"><span>Repita a nova senha</span><input name="confirm" type="password" autocomplete="new-password" required></label>
+      <p id="password-error" class="form-error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-foot"><button class="btn btn-primary">Salvar nova senha</button></div>
   </form>
 </dialog>
 

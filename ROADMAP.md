@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 31 testes de API/integração + 12 verificações E2E em navegador
+- ✅ 55 testes de API/integração + 15 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -21,7 +21,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Identidade visual por loja (cor, logotipo, banner, descrição)
 - ✅ Compartilhamento da vitrine e de produtos (link direto `#p-<id>`)
 - ✅ Bucket R2 `def-commerce-images` criado e ligado ao Worker (binding `IMAGES`)
-- ⬜ Variações (tamanho/cor/modelo) com SKU e estoque próprios — exige nova tabela e ajuste dos gatilhos de estoque
+- ✅ Variações (tamanho/cor/modelo) com SKU, preço e estoque próprios; gerador de combinações; estoque do produto = soma das variações; gatilhos de pedido atualizados
 - ⬜ Reordenar fotos; categorias gerenciadas com ordem e imagem
 - ⬜ Catálogo em PDF / página de catálogo para impressão
 
@@ -31,7 +31,8 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Gestão de produtos, pedidos (filtros e ações por status), clientes, estoque (histórico) e loja
 - ✅ Exportação CSV de pedidos e clientes; registro de atividades
 - ✅ Layout mobile first (navegação inferior no celular, lateral no desktop)
-- ⬜ Funcionários e permissões individuais (o papel `staff` já existe no banco e na API)
+- ✅ Equipe: funcionários com permissões individuais (produtos, pedidos, clientes, indicadores), senha provisória com troca obrigatória no 1º acesso, remoção com encerramento imediato das sessões
+- ✅ Troca de senha pelo próprio usuário (encerra as outras sessões)
 - ⛔ Recuperação de senha por e-mail (precisa de provedor de e-mail)
 - ⬜ Notificações de novos pedidos (no painel e por e-mail/push)
 - ⬜ Relatórios por período e gráficos
@@ -53,11 +54,16 @@ Cloudflare, sem chave extra) para texto e visão, ou a API da Anthropic.
 - ⛔ Notificações automáticas e atendimento automatizado (exigem WhatsApp Business Cloud API)
 - ⬜ Recuperação de carrinho abandonado com consentimento
 
-## Fase 6 — Super administrador ⬜
+## Fase 6 — Super administrador 🟡
 
-- ✅ Base: coluna `stores.status` (`active`/`suspended`) já bloqueia vitrine e painel de lojas suspensas
-- ⬜ Papel de super administrador separado dos lojistas (tabela própria, 2FA, rota isolada)
-- ⬜ Gestão de lojistas, planos, assinaturas, uso de IA e armazenamento, logs e erros
+- ✅ Super administrador separado dos lojistas: tabela `platform_admins`, rotas `/api/admin/*` e página `/admin` isoladas; um administrador não acessa o painel de lojas e vice-versa
+- ✅ Visão geral da plataforma (lojas, usuários, produtos, pedidos, GMV, armazenamento de imagens)
+- ✅ Lista de lojas com busca, indicadores por loja, suspensão (com motivo obrigatório) e reativação
+- ✅ Registro de operações de toda a plataforma
+- ✅ Script `scripts/create-admin.js` para criar o primeiro administrador
+- ⬜ 2FA para administradores
+- ⬜ Planos, assinaturas e uso de IA (dependem das Fases 4 e 7)
+- ⬜ Monitoramento de erros com alertas
 
 ## Fase 7 — Monetização ⛔
 

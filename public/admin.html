@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1f3a">
+<meta name="robots" content="noindex, nofollow">
+<title>Administração | Def Commerce</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/admin.css">
+<script src="/js/admin.js" type="module"></script>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" hidden>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v6H4V6h6"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10v10h16V10"/><path d="M2.5 6 5 3h14l2.5 3v1.5a3 3 0 0 1-5 2.2 3 3 0 0 1-4.5 0 3 3 0 0 1-4.5 0 3 3 0 0 1-5-2.2z"/><path d="M9.5 20v-5h5v5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+</svg>
+
+<main id="login-view" class="admin-login" hidden>
+  <form id="login" class="card" novalidate>
+    <span class="brand"><span class="brand-mark">D</span>Def Commerce · Administração</span>
+    <h1>Acesso restrito</h1>
+    <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="username" required></label>
+    <label class="field"><span>Senha</span><input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn btn-blue btn-block">Entrar</button>
+    <p id="login-error" class="form-error" role="alert" hidden></p>
+  </form>
+</main>
+
+<div id="app" hidden>
+  <header class="admin-top">
+    <span class="brand"><span class="brand-mark">D</span>Administração</span>
+    <div class="admin-actions">
+      <small id="admin-email" class="muted hide-sm"></small>
+      <button id="open-password" class="btn btn-ghost btn-icon" aria-label="Alterar senha" title="Alterar senha"><svg class="icon"><use href="#i-key"/></svg></button>
+      <button id="logout" class="btn btn-ghost btn-icon" aria-label="Sair" title="Sair"><svg class="icon"><use href="#i-logout"/></svg></button>
+    </div>
+  </header>
+  <main class="admin-main">
+    <section aria-labelledby="h-overview">
+      <h1 id="h-overview">Visão geral da plataforma</h1>
+      <div class="kpis" id="kpis"></div>
+    </section>
+    <section class="card" aria-labelledby="h-stores">
+      <div class="section-head">
+        <h2 id="h-stores">Lojas</h2>
+        <label class="search"><svg class="icon"><use href="#i-search"/></svg><span class="sr-only">Buscar lojas</span><input id="search" type="search" placeholder="Nome, endereço ou e-mail"></label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Loja</th><th>Proprietário</th><th class="num">Produtos</th><th class="num">Pedidos</th><th class="num">Vendas</th><th class="num">Imagens</th><th>Criada</th><th>Status</th><th></th></tr></thead>
+          <tbody id="stores"></tbody>
+        </table>
+      </div>
+    </section>
+    <details class="card" id="audit">
+      <summary><svg class="icon"><use href="#i-history"/></svg>Registro de operações</summary>
+      <div id="audit-list"></div>
+    </details>
+  </main>
+</div>
+
+<dialog id="suspend-dialog" aria-labelledby="suspend-title">
+  <form id="suspend-form" novalidate>
+    <div class="dialog-head"><h2 id="suspend-title">Suspender loja</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <p>A vitrine sai do ar e a equipe da loja perde o acesso ao painel até a reativação. Os dados são preservados.</p>
+      <label class="field"><span>Motivo (fica no registro de operações)</span><textarea name="reason" maxlength="300" required></textarea></label>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-danger">Suspender</button></div>
+  </form>
+</dialog>
+
+<dialog id="password-dialog" aria-labelledby="password-title">
+  <form id="password-form" novalidate>
+    <div class="dialog-head"><h2 id="password-title">Alterar senha</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <label class="field"><span>Senha atual</span><input name="current_password" type="password" autocomplete="current-password" required></label>
+      <label class="field"><span>Nova senha</span><input name="new_password" type="password" minlength="12" autocomplete="new-password" required></label>
+    </div>
+    <div class="dialog-foot"><button class="btn btn-blue">Salvar</button></div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

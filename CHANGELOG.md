@@ -2,6 +2,24 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.3.0] — 2026-11-27 — Variações, equipe e super administrador
+
+### Adicionado
+- **Variações de produto** (tamanho, cor, modelo) com SKU, preço e estoque próprios, gerador de combinações no painel e escolha da opção na vitrine. O estoque do produto passa a ser a soma das variações.
+- **Equipe**: o proprietário adiciona funcionários com permissões por área (produtos e estoque, pedidos, clientes, indicadores). A senha provisória precisa ser trocada no primeiro acesso. Remover alguém encerra as sessões na hora.
+- **Troca de senha** para todos os usuários, encerrando as outras sessões abertas.
+- **Super administrador** (`/admin`): visão geral da plataforma, lojas com busca e indicadores, suspensão com motivo e reativação, registro de operações. Isolado do painel dos lojistas.
+- Script `scripts/create-admin.js` para criar administradores sem expor a senha.
+- Migração 0009: tabelas `product_variants` e `platform_admins`, colunas de equipe e gatilhos de estoque atualizados.
+- 24 testes de API novos (55 no total) e 3 fluxos E2E novos (15 verificações).
+
+### Corrigido
+- Rodapés de diálogos podiam transbordar em celulares de 375 px.
+- O painel de um funcionário com senha provisória tentava carregar dados antes da troca obrigatória.
+
+### Segurança
+- Controle de acesso por rota (público, membro, permissão, proprietário, administrador).
+
 ## [0.2.0] — 2026-11-27 — Fase 1: auditoria e recuperação
 
 ### Corrigido

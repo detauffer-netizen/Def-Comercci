@@ -9,6 +9,8 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 
 | Ameaça | Controle |
 | --- | --- |
+| Controle de acesso | Cada rota declara seu nível: público, membro da loja, permissão específica, proprietário ou super administrador; funcionários com senha provisória só podem trocá-la |
+| Super administrador | Tabela própria (`platform_admins`) e rotas `/api/admin/*` isoladas; administradores não acessam lojas e lojistas não acessam a administração; suspensões exigem motivo e ficam auditadas |
 | Acesso a dados de outra loja | `store_id` sempre vem da sessão no servidor; testes de isolamento para produtos, pedidos, clientes, métricas e imagens |
 | Senhas | PBKDF2-SHA256, 100.000 iterações (máximo do runtime), salt aleatório de 128 bits por usuário; formato versionado com migração automática do formato antigo; comparação em tempo constante; derivação executada mesmo para e-mail inexistente |
 | Sessões | Token aleatório de 256 bits; só o hash SHA-256 fica no banco; cookie `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`; expiração de 7 dias; logout invalida no servidor; limpeza periódica |
@@ -39,5 +41,5 @@ segredos do Worker e segredos do GitHub Actions para a publicação. Veja `.env.
 ## Pendências de segurança conhecidas
 
 - Recuperação de senha por e-mail (depende de provedor de e-mail).
-- Autenticação em dois fatores para o painel e o futuro super administrador.
+- Autenticação em dois fatores para o painel e para o super administrador.
 - Webhooks de pagamento autenticados e idempotentes (Fase 7).

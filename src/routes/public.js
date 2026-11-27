@@ -31,6 +31,26 @@ export async function imagesByProduct(db, storeId) {
   return map;
 }
 
+export async function variantsByProduct(db, storeId, { activeOnly = false } = {}) {
+  const rows = await db
+    .prepare(
+      `SELECT id,product_id,name,sku,price_cents,stock,active FROM product_variants
+        WHERE store_id=? ${activeOnly ? "AND active=1" : ""} ORDER BY position, name`,
+    )
+    .bind(storeId)
+    .all();
+  const map = new Map();
+  for (const { product_id, ...row } of rows.results) {
+    if (!map.has(product_id)) map.set(product_id, []);
+    map.get(product_id).push(row);
+  }
+  return map;
+}
+
+export function variantPrice(product, variant) {
+  return variant.price_cents ?? effectivePrice(product);
+}
+
 export async function storefront(request, env, params) {
   const db = env.DB;
   const store = await activeStore(db, params.slug);
@@ -44,6 +64,10 @@ export async function storefront(request, env, params) {
     .bind(store.id)
     .all();
   const images = await imagesByProduct(db, store.id);
+  const variants = await variantsByProduct(db, store.id, { activeOnly: true });
+  const hasVariants = new Set(
+    (await db.prepare("SELECT DISTINCT product_id FROM product_variants WHERE store_id=?").bind(store.id).all()).results.map((r) => r.product_id),
+  );
   return json(
     {
       name: store.name,
@@ -53,12 +77,20 @@ export async function storefront(request, env, params) {
       description: store.description,
       logo_url: imageUrl(store.logo_key),
       banner_url: imageUrl(store.banner_key),
-      products: products.results.map((p) => ({
-        ...p,
-        featured: !!p.featured,
-        final_price_cents: effectivePrice(p),
-        images: (images.get(p.id) || []).map((i) => i.url),
-      })),
+      products: products.results.map((p) => {
+        const options = (variants.get(p.id) || []).map((x) => ({
+          id: x.id, name: x.name, stock: x.stock, final_price_cents: variantPrice(p, x),
+        }));
+        return {
+          ...p,
+          // Produto com variações: só as ativas contam para a vitrine.
+          stock: hasVariants.has(p.id) ? options.reduce((sum, x) => sum + x.stock, 0) : p.stock,
+          featured: !!p.featured,
+          final_price_cents: options.length ? Math.min(...options.map((x) => x.final_price_cents)) : effectivePrice(p),
+          images: (images.get(p.id) || []).map((i) => i.url),
+          variants: options,
+        };
+      }),
     },
     200,
     // Cache curto na borda; o estoque é revalidado de novo no pedido.
@@ -83,21 +115,42 @@ export async function createOrderRequest(request, env, params) {
   const items = [];
   let total = 0;
   for (const item of body.items) {
-    if (typeof item?.id !== "string" || item.id.length > 64 || seen.has(item.id)) throw new HttpError(400, "Pedido inválido");
+    const variantId = item?.variant_id ?? null;
+    const key = `${item?.id}:${variantId}`;
+    if (typeof item?.id !== "string" || item.id.length > 64 || seen.has(key)) throw new HttpError(400, "Pedido inválido");
+    if (variantId !== null && (typeof variantId !== "string" || variantId.length > 64)) throw new HttpError(400, "Pedido inválido");
     if (!Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 100) {
       throw new HttpError(400, "Quantidade inválida");
     }
-    seen.add(item.id);
+    seen.add(key);
     // Preço e nome sempre vêm do banco, nunca do navegador.
     const product = await db
-      .prepare("SELECT name,price_cents,promo_price_cents,stock,sku FROM products WHERE id=? AND store_id=? AND active=1")
+      .prepare(
+        `SELECT name,price_cents,promo_price_cents,stock,sku,
+                EXISTS (SELECT 1 FROM product_variants WHERE product_id=products.id) AS has_variants
+           FROM products WHERE id=? AND store_id=? AND active=1`,
+      )
       .bind(item.id, store.id)
       .first();
     if (!product) throw new HttpError(409, "Um dos produtos não está mais disponível");
-    if (product.stock < item.quantity) throw new HttpError(409, `Estoque insuficiente para ${product.name}`);
-    const price = effectivePrice(product);
-    total += price * item.quantity;
-    items.push({ id: item.id, name: product.name, sku: product.sku, quantity: item.quantity, price_cents: price });
+    if (product.has_variants && variantId === null) throw new HttpError(400, `Escolha uma opção de ${product.name}`);
+    if (!product.has_variants && variantId !== null) throw new HttpError(400, "Pedido inválido");
+    let line = { id: item.id, name: product.name, sku: product.sku, quantity: item.quantity, price_cents: effectivePrice(product) };
+    let stock = product.stock;
+    if (variantId !== null) {
+      const variant = await db
+        .prepare("SELECT id,name,sku,price_cents,stock FROM product_variants WHERE id=? AND product_id=? AND store_id=? AND active=1")
+        .bind(variantId, item.id, store.id)
+        .first();
+      if (!variant) throw new HttpError(409, `A opção escolhida de ${product.name} não está mais disponível`);
+      stock = variant.stock;
+      line = { ...line, variant_id: variant.id, variant_name: variant.name, sku: variant.sku || product.sku, price_cents: variantPrice(product, variant) };
+    }
+    if (stock < item.quantity) {
+      throw new HttpError(409, `Estoque insuficiente para ${product.name}${line.variant_name ? ` (${line.variant_name})` : ""}`);
+    }
+    total += line.price_cents * item.quantity;
+    items.push(line);
   }
   const orderId = crypto.randomUUID();
   await db

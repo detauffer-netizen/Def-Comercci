@@ -6,7 +6,7 @@ import { audit, requireOwner } from "../lib/session.js";
 import {
   MAX_IMAGES_PER_PRODUCT, deleteImages, imageKey, imageUrl, putImage, readImageUpload, requireBucket,
 } from "../lib/images.js";
-import { effectivePrice, imagesByProduct } from "./public.js";
+import { effectivePrice, imagesByProduct, variantsByProduct } from "./public.js";
 import * as v from "../lib/validate.js";
 
 function storeView(store) {
@@ -22,7 +22,16 @@ function storeView(store) {
 }
 
 export function me(request, env, session) {
-  return json({ user: { email: session.user.email, role: session.user.role }, store: storeView(session.store) });
+  return json({
+    user: {
+      email: session.user.email,
+      name: session.user.name,
+      role: session.user.role,
+      permissions: session.user.permissions,
+      must_change_password: session.user.mustChangePassword,
+    },
+    store: storeView(session.store),
+  });
 }
 
 export async function updateSettings(request, env, session) {
@@ -41,30 +50,89 @@ export async function updateSettings(request, env, session) {
 
 // ---------- Produtos ----------
 
+const MAX_VARIANTS = 60;
+
+function skuText(value) {
+  const sku = v.cleanText(value, 60);
+  if (sku && !/^[A-Za-z0-9._\-/]+$/.test(sku)) throw new HttpError(400, "SKU inválido: use letras, números, ponto, hífen ou barra");
+  return sku;
+}
+
+// variants: undefined = não mexe nas variações; [] = produto sem variações.
+function variantsInput(list) {
+  if (list === undefined) return undefined;
+  if (!Array.isArray(list) || list.length > MAX_VARIANTS) throw new HttpError(400, `Use no máximo ${MAX_VARIANTS} variações`);
+  const names = new Set();
+  const skus = new Set();
+  return list.map((item, position) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, "Variação inválida");
+    const name = v.requiredText(item.name, 60, "o nome de cada variação (ex.: P / Azul)");
+    const key = name.toLowerCase();
+    if (names.has(key)) throw new HttpError(400, `Variação repetida: ${name}`);
+    names.add(key);
+    const sku = skuText(item.sku);
+    if (sku && skus.has(sku)) throw new HttpError(400, `SKU repetido nas variações: ${sku}`);
+    if (sku) skus.add(sku);
+    return {
+      id: typeof item.id === "string" && /^[0-9a-f-]{36}$/.test(item.id) ? item.id : null,
+      name,
+      sku,
+      price_cents: v.cents(item.price_cents, `preço da variação ${name}`, { optional: true }),
+      stock: v.quantity(item.stock, `estoque da variação ${name}`),
+      active: item.active === undefined ? 1 : v.flag(item.active),
+      position,
+    };
+  });
+}
+
 function productInput(body) {
   const price = v.cents(body.price_cents, "preço");
   const promo = v.cents(body.promo_price_cents, "preço promocional", { optional: true });
   if (promo !== null && promo >= price) throw new HttpError(400, "O preço promocional deve ser menor que o preço normal");
-  const sku = v.cleanText(body.sku, 60);
-  if (sku && !/^[A-Za-z0-9._\-/]+$/.test(sku)) throw new HttpError(400, "SKU inválido: use letras, números, ponto, hífen ou barra");
+  const variants = variantsInput(body.variants);
   return {
     name: v.requiredText(body.name, 120, "o nome do produto"),
     description: v.cleanText(body.description, 2000, { multiline: true }),
     price_cents: price,
     promo_price_cents: promo,
-    stock: v.quantity(body.stock, "estoque"),
+    // Com variações, o estoque do produto é a soma delas (calculada no banco).
+    stock: variants?.length ? 0 : v.quantity(body.stock, "estoque"),
     category: v.cleanText(body.category, 80),
-    sku,
+    sku: skuText(body.sku),
     featured: v.flag(body.featured),
     active: body.active === undefined ? 1 : v.flag(body.active),
+    variants,
   };
 }
 
 function skuConflict(error) {
   if (String(error?.message || error).includes("UNIQUE")) {
-    throw new HttpError(409, "Já existe outro produto com este SKU");
+    throw new HttpError(409, "Já existe outro produto ou variação com este SKU");
   }
   throw error;
+}
+
+// Monta as instruções que sincronizam as variações de um produto.
+async function variantStatements(db, storeId, productId, variants) {
+  const existing = await db.prepare("SELECT id FROM product_variants WHERE product_id=? AND store_id=?").bind(productId, storeId).all();
+  const known = new Set(existing.results.map((r) => r.id));
+  const keep = variants.filter((x) => x.id && known.has(x.id)).map((x) => x.id);
+  const statements = [
+    db.prepare("DELETE FROM product_variants WHERE product_id=? AND store_id=? AND id NOT IN (SELECT value FROM json_each(?))")
+      .bind(productId, storeId, JSON.stringify(keep)),
+  ];
+  for (const x of variants) {
+    if (x.id && known.has(x.id)) {
+      statements.push(db.prepare(
+        "UPDATE product_variants SET name=?,sku=?,price_cents=?,stock=?,active=?,position=? WHERE id=? AND product_id=? AND store_id=?",
+      ).bind(x.name, x.sku, x.price_cents, x.stock, x.active, x.position, x.id, productId, storeId));
+    } else {
+      statements.push(db.prepare(
+        "INSERT INTO product_variants(id,store_id,product_id,name,sku,price_cents,stock,active,position) VALUES(?,?,?,?,?,?,?,?,?)",
+      ).bind(crypto.randomUUID(), storeId, productId, x.name, x.sku, x.price_cents, x.stock, x.active, x.position));
+    }
+  }
+  return statements;
 }
 
 export async function listProducts(request, env, session) {
@@ -73,39 +141,48 @@ export async function listProducts(request, env, session) {
        FROM products WHERE store_id=? ORDER BY active DESC, name COLLATE NOCASE`,
   ).bind(session.store.id).all();
   const images = await imagesByProduct(env.DB, session.store.id);
+  const variants = await variantsByProduct(env.DB, session.store.id);
   return json(rows.results.map((p) => ({
     ...p,
     featured: !!p.featured,
     active: !!p.active,
     final_price_cents: effectivePrice(p),
     images: images.get(p.id) || [],
+    variants: (variants.get(p.id) || []).map((x) => ({ ...x, active: !!x.active })),
   })));
 }
 
 export async function createProduct(request, env, session) {
+  const db = env.DB;
   const p = productInput(await readJson(request));
   const id = crypto.randomUUID();
-  await env.DB.prepare(
-    `INSERT INTO products(id,store_id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active)
-     VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-  ).bind(id, session.store.id, p.name, p.description, p.price_cents, p.promo_price_cents, p.stock, p.category, p.sku, p.featured, p.active)
-    .run()
-    .catch(skuConflict);
-  await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "product.created", target: id, detail: p.name });
+  const statements = [
+    db.prepare(
+      `INSERT INTO products(id,store_id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(id, session.store.id, p.name, p.description, p.price_cents, p.promo_price_cents, p.stock, p.category, p.sku, p.featured, p.active),
+  ];
+  if (p.variants?.length) statements.push(...(await variantStatements(db, session.store.id, id, p.variants)));
+  await db.batch(statements).catch(skuConflict);
+  await audit(db, { storeId: session.store.id, userId: session.user.id, action: "product.created", target: id, detail: p.name });
   return json({ created: true, id }, 201);
 }
 
 export async function updateProduct(request, env, session, params) {
+  const db = env.DB;
   const id = v.id(params.id);
   const p = productInput(await readJson(request));
-  const result = await env.DB.prepare(
-    `UPDATE products SET name=?,description=?,price_cents=?,promo_price_cents=?,stock=?,category=?,sku=?,featured=?,active=?
+  const exists = await db.prepare("SELECT 1 FROM products WHERE id=? AND store_id=?").bind(id, session.store.id).first();
+  if (!exists) throw new HttpError(404, "Produto não encontrado");
+  const statements = p.variants === undefined ? [] : await variantStatements(db, session.store.id, id, p.variants);
+  // Se o produto tem variações, o estoque vem delas e não é alterado aqui.
+  statements.push(db.prepare(
+    `UPDATE products SET name=?,description=?,price_cents=?,promo_price_cents=?,category=?,sku=?,featured=?,active=?,
+            stock = CASE WHEN EXISTS (SELECT 1 FROM product_variants WHERE product_id=products.id) THEN stock ELSE ? END
       WHERE id=? AND store_id=?`,
-  ).bind(p.name, p.description, p.price_cents, p.promo_price_cents, p.stock, p.category, p.sku, p.featured, p.active, id, session.store.id)
-    .run()
-    .catch(skuConflict);
-  if (!result.meta.changes) throw new HttpError(404, "Produto não encontrado");
-  await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "product.updated", target: id, detail: p.name });
+  ).bind(p.name, p.description, p.price_cents, p.promo_price_cents, p.category, p.sku, p.featured, p.active, p.stock, id, session.store.id));
+  await db.batch(statements).catch(skuConflict);
+  await audit(db, { storeId: session.store.id, userId: session.user.id, action: "product.updated", target: id, detail: p.name });
   return json({ ok: true });
 }
 
@@ -115,9 +192,10 @@ export async function deleteProduct(request, env, session, params) {
   const images = await db.prepare("SELECT r2_key FROM product_images WHERE product_id=? AND store_id=?").bind(id, session.store.id).all();
   const results = await db.batch([
     db.prepare("DELETE FROM product_images WHERE product_id=? AND store_id=?").bind(id, session.store.id),
+    db.prepare("DELETE FROM product_variants WHERE product_id=? AND store_id=?").bind(id, session.store.id),
     db.prepare("DELETE FROM products WHERE id=? AND store_id=?").bind(id, session.store.id),
   ]);
-  if (!results[1].meta.changes) throw new HttpError(404, "Produto não encontrado");
+  if (!results[2].meta.changes) throw new HttpError(404, "Produto não encontrado");
   await deleteImages(env, images.results.map((r) => r.r2_key));
   await audit(db, { storeId: session.store.id, userId: session.user.id, action: "product.deleted", target: id });
   return json({ ok: true });
