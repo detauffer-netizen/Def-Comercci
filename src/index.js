@@ -19,6 +19,7 @@ import * as dashboard from "./routes/dashboard.js";
 import * as sales from "./routes/sales.js";
 import * as finance from "./routes/finance.js";
 import * as stock from "./routes/stock.js";
+import * as catalog from "./routes/catalog.js";
 import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
@@ -68,6 +69,8 @@ const ROUTES = [
   ["PUT", "/api/categories/order", panel.setCategoryOrder, "products"],
   ["GET", "/api/products", panel.listProducts, "products"],
   ["POST", "/api/products", panel.createProduct, "products"],
+  ["POST", "/api/products/import", catalog.importProducts, "products"],
+  ["POST", "/api/products/bulk", catalog.bulkUpdate, "products"],
   ["PATCH", "/api/products/:id", panel.updateProduct, "products"],
   ["DELETE", "/api/products/:id", panel.deleteProduct, "products"],
   ["POST", "/api/products/:id/images", panel.uploadProductImage, "products"],
@@ -136,7 +139,7 @@ export const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=()",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 };
 

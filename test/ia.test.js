@@ -25,7 +25,7 @@ describe("inteligência artificial (Workers AI)", () => {
     assert.equal(res.status, 200, JSON.stringify(res.data));
     assert.deepEqual(res.data.suggestion, {
       name: "Camiseta Básica Azul", description: "Camiseta de algodão macio, ideal para o dia a dia.", category: "Camisetas",
-      price_cents: 5990, variants: ["P", "M", "G"], features: ["100% algodão"],
+      price_cents: 5990, cost_cents: null, stock: null, variants: ["P", "M", "G"], features: ["100% algodão"],
     });
     assert.equal(ai.calls[0].model, TEXT_MODEL);
     assert.equal(ai.calls[0].input.response_format.type, "json_schema");

@@ -85,6 +85,8 @@ const text = (value, max) => String(value ?? "").replace(/[\u0000-\u0008\u000B\u
 
 export function cleanProductSuggestion(raw) {
   const price = Number(raw?.price_reais);
+  const cost = Number(raw?.cost_reais);
+  const qty = Number(raw?.quantity);
   const variants = Array.isArray(raw?.variants) ? raw.variants : [];
   const seen = new Set();
   return {
@@ -93,6 +95,9 @@ export function cleanProductSuggestion(raw) {
     category: text(raw?.category, 80),
     // Preço só quando informado pelo lojista; nunca inventado pela foto.
     price_cents: Number.isFinite(price) && price > 0 && price < 1e8 ? Math.round(price * 100) : null,
+    // Custo e quantidade também só quando o lojista informar ("comprei 20 por R$ 25").
+    cost_cents: raw?.cost_reais !== null && Number.isFinite(cost) && cost > 0 && cost < 1e8 ? Math.round(cost * 100) : null,
+    stock: raw?.quantity !== null && Number.isInteger(qty) && qty > 0 && qty <= 100000 ? qty : null,
     variants: variants
       .map((v) => text(typeof v === "string" ? v : v?.name, 60))
       .filter((v) => v && !seen.has(v.toLowerCase()) && seen.add(v.toLowerCase()))
@@ -107,11 +112,13 @@ export const PRODUCT_SCHEMA = {
     name: { type: "string", description: "Título comercial curto do produto, em português" },
     description: { type: "string", description: "Descrição persuasiva e honesta, 2 a 4 frases, em português" },
     category: { type: "string", description: "Categoria curta, ex.: Camisetas, Bolos, Brincos" },
-    price_reais: { type: ["number", "null"], description: "Preço em reais SOMENTE se informado pelo lojista; caso contrário null" },
+    price_reais: { type: ["number", "null"], description: "Preço de VENDA em reais SOMENTE se informado pelo lojista; caso contrário null" },
+    cost_reais: { type: ["number", "null"], description: "Custo por UNIDADE em reais (quanto o lojista pagou) SOMENTE se informado; se ele informar o total da compra e a quantidade, divida; caso contrário null" },
+    quantity: { type: ["integer", "null"], description: "Quantidade de unidades em estoque SOMENTE se informada; caso contrário null" },
     variants: { type: "array", items: { type: "string" }, description: "Opções informadas (tamanhos, cores, sabores); vazio se não houver" },
     features: { type: "array", items: { type: "string" }, description: "Características observadas ou informadas" },
   },
-  required: ["name", "description", "category", "price_reais", "variants", "features"],
+  required: ["name", "description", "category", "price_reais", "cost_reais", "quantity", "variants", "features"],
 };
 
 export const SYSTEM_PRODUCT = [
