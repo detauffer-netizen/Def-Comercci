@@ -49,7 +49,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Assistente de divulgação: mensagem para WhatsApp, legenda para Instagram e ideias, usando só produtos e preços reais da loja
 - ✅ Tudo é sugestão: preenche o formulário, destaca os campos e exige revisão; nada é salvo automaticamente
 - ✅ Limite diário de uso por loja (`AI_DAILY_LIMIT`, padrão 30) e consumo visível na administração
-- ⬜ Limites por plano de assinatura (depende da Fase 7)
+- ✅ Limites de IA por plano de assinatura
 - ⛔ Remoção de fundo e melhoria de fotos: não há modelo para isso no Workers AI; exigiria Cloudflare Images (pago) ou outro provedor
 - ⬜ Validar a qualidade das respostas com o modelo real após a publicação (os testes usam um modelo simulado)
 
@@ -75,12 +75,16 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ⬜ Planos, assinaturas e uso de IA (dependem das Fases 4 e 7)
 - ⬜ Alertas de erro por e-mail (depende de provedor)
 
-## Fase 7 — Monetização ⛔
+## Fase 7 — Monetização 🟡
 
-Preços e provedor de pagamento dependem do proprietário.
+Provedor: Mercado Pago. Preços e ativação da cobrança dependem do proprietário.
 - ✅ Cupons de desconto das lojas para seus clientes (percentual ou valor fixo, pedido mínimo, validade, limite de usos atômico)
-- ⬜ Planos, período de teste, limites por plano e cupons de assinatura
-- ⬜ Cobrança recorrente (Pix e cartão) com webhooks autenticados e idempotentes
+- ✅ Planos com período de teste e limites (produtos, equipe, IA por dia), aplicados no servidor; gestão na administração
+- ✅ Assinatura recorrente no cartão e pagamento mensal por Pix ou cartão (Mercado Pago), com webhook autenticado e idempotente, carência de 7 dias
+- ✅ Indicadores de receita (MRR, pagantes, em teste, inadimplentes) e plano manual por loja
+- ⛔ Ativar a cobrança real: credenciais do Mercado Pago, preços dos planos e autorização do proprietário
+- ⬜ Validar os campos das notificações no ambiente de testes (sandbox) do Mercado Pago
+- ⬜ Cupons de assinatura
 
 ## Fase 8 — Segurança e qualidade 🟡
 

@@ -17,6 +17,7 @@ pedidos pelo WhatsApp e controlarem estoque, clientes e vendas em um painel.
 | Imagens | Cloudflare R2, binding `IMAGES` (opcional; sem ele o upload responde 503) |
 | Páginas | Arquivos estáticos em `public/` servidos pelo binding `ASSETS` |
 | Inteligência artificial | Cloudflare Workers AI, binding `AI` (Llama 3.3 70B para texto, Llama 4 Scout para fotos); limite diário por loja em `AI_DAILY_LIMIT` |
+| Pagamentos | Mercado Pago (assinatura no cartão e Pix/cartão mensal via Checkout Pro); desligado por padrão (`BILLING_ENABLED`) |
 
 ```
 src/
@@ -88,6 +89,25 @@ node scripts/create-admin.js voce@exemplo.com > /tmp/admin.sql   # pede a senha 
 npx wrangler d1 execute def-commerce-db --remote --file=/tmp/admin.sql
 rm /tmp/admin.sql
 ```
+
+## Pagamentos (Mercado Pago)
+
+A cobrança vem **desligada**. Para ativar (somente com autorização do proprietário):
+
+1. No painel de desenvolvedor do Mercado Pago, crie uma aplicação e cadastre as notificações (Webhooks) em
+   `https://<seu-domínio>/api/billing/webhook/mercadopago`, com os tópicos *Pagamentos* e *Planos e assinaturas*.
+2. Cadastre os segredos (comece com as credenciais de teste):
+
+```bash
+npx wrangler secret put MP_ACCESS_TOKEN
+```
+
+```bash
+npx wrangler secret put MP_WEBHOOK_SECRET
+```
+
+3. Defina preços em `/admin` → Planos e assinaturas.
+4. Troque `BILLING_ENABLED` para `"true"` no `wrangler.toml` e publique.
 
 ## Rollback
 
