@@ -28,6 +28,7 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 | Inteligência artificial | Saída do modelo higienizada e limitada; nunca salva sozinha; preço nunca deduzido de foto; produtos de outras lojas nunca entram no prompt; limite diário por loja; dados de compradores não são enviados à IA |
 | Pagamentos | Mercado Pago: nenhum dado de cartão passa pelo Def Commerce; webhook com assinatura `x-signature` (HMAC-SHA256, tempo constante, janela de 24 h), idempotente e sempre confirmado consultando a API; valor pago conferido com o preço do plano; limites de plano aplicados no servidor; cobrança desligada por padrão |
 | Auditoria | `audit_log` por loja (cadastro, login, produtos, pedidos, configurações) e histórico de estoque por gatilho |
+| Câmera | `Permissions-Policy: camera=(self)`: só o próprio site pode pedir a câmera (leitura de código de barras); nenhuma imagem da câmera é enviada ao servidor |
 | Transporte | HSTS, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options` |
 
 ## LGPD
