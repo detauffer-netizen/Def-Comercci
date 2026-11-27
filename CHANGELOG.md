@@ -2,6 +2,19 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.6.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 4: estoque avançado
+
+### Adicionado
+- **Movimentar estoque** (Produtos): **Entrada** de mercadoria (com custo por unidade e fornecedor; o custo do produto é atualizado pela média ponderada), **Perda** (avaria, vencimento, extravio) e **Inventário** (informe a quantidade contada; o sistema ajusta a diferença). Funciona com variações.
+- **Preciso repor**: lista dos itens no alerta de reposição ou abaixo, já descontado o que está **reservado** em pedidos pendentes, agrupada por fornecedor, com quantidade sugerida editável, custo estimado e botões **Enviar ao fornecedor** (WhatsApp), Compartilhar e Copiar lista. Inclui produtos ocultos da vitrine (vendidos no balcão).
+- **Fornecedores**: cadastro com WhatsApp; renomear atualiza os produtos ligados. A primeira entrada com fornecedor liga o produto a ele.
+- Histórico de estoque mostra as entradas, perdas e inventários com observação.
+
+### Técnico
+- Migração 0020 (`suppliers`, `stock_adjustments` e os gatilhos `stock_adjustment_guard`/`stock_adjustment_apply`): o estoque muda na mesma instrução do registro; o CHECK de estoque ≥ 0 desfaz qualquer movimentação que deixaria o saldo negativo. O inventário calcula a diferença no próprio banco.
+- Rotas (permissão de produtos): `GET/POST /api/stock-adjustments`, `GET /api/restock`, `GET/POST/PATCH/DELETE /api/suppliers`.
+- 4 testes de API novos (150 no total) e 1 fluxo E2E novo (32 verificações).
+
 ## [1.5.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 3: financeiro
 
 ### Adicionado

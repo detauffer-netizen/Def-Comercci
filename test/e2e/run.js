@@ -772,6 +772,48 @@ try {
     await pf.getByRole("button", { name: "Cancelar" }).click();
   });
 
+  await check("estoque: fornecedor, entrada com custo, perda, inventário e Preciso repor", async () => {
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator("#supplier-card > summary").click();
+    const sf = panel.locator("#supplier-form");
+    await sf.getByLabel("Nome do fornecedor").fill("Cerâmica Serra");
+    await sf.getByLabel("WhatsApp do fornecedor").fill("(54) 98877-6655");
+    await sf.getByRole("button", { name: "Adicionar fornecedor" }).click();
+    await panel.locator("#supplier-list .row", { hasText: "Cerâmica Serra" }).waitFor();
+    // Entrada: 6 canecas a R$ 9,00 (havia 3 em estoque).
+    await panel.getByRole("button", { name: "Movimentar estoque" }).click();
+    const dlg = panel.locator("#stock-dialog");
+    await dlg.getByLabel("Produto").selectOption({ label: "Caneca Balcão" });
+    await dlg.locator("#stock-current", { hasText: "Estoque atual: 3" }).waitFor();
+    await dlg.getByLabel("Quantidade que chegou").fill("6");
+    await dlg.getByLabel("Custo por unidade (R$)").fill("9,00");
+    await dlg.getByLabel("Fornecedor").fill("Cerâmica Serra");
+    await noHorizontalScroll(panel, "movimentar estoque");
+    await dlg.getByRole("button", { name: "Registrar entrada" }).click();
+    await panel.locator("#toast", { hasText: "agora 9" }).waitFor();
+    let caneca = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Caneca Balcão");
+    assert.equal(caneca.stock, 9);
+    // Inventário: só 2 encontradas.
+    await panel.getByRole("button", { name: "Movimentar estoque" }).click();
+    await dlg.getByRole("radio", { name: "Inventário" }).click();
+    await dlg.getByLabel("Produto").selectOption({ label: "Caneca Balcão" });
+    await dlg.getByLabel("Quantidade contada").fill("2");
+    await dlg.getByRole("button", { name: "Salvar contagem" }).click();
+    await panel.locator("#toast", { hasText: "-7" }).waitFor();
+    caneca = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Caneca Balcão");
+    assert.equal(caneca.stock, 2);
+    // Preciso repor: a caneca (2 ≤ 3) aparece no grupo do fornecedor, com envio pelo WhatsApp.
+    await panel.getByRole("button", { name: /Preciso repor/ }).click();
+    const group = panel.locator("#restock-list .restock-group", { hasText: "Cerâmica Serra" });
+    await group.locator(".restock-item", { hasText: "Caneca Balcão" }).waitFor();
+    await noHorizontalScroll(panel, "preciso repor");
+    await shot(panel, "20-preciso-repor-mobile");
+    const link = group.getByRole("link", { name: "Enviar ao fornecedor" });
+    await link.dispatchEvent("click");
+    assert.match(await link.getAttribute("href"), /^https:\/\/wa\.me\/5554988776655\?text=.*Caneca%20Balc/);
+    await panel.locator("#restock-dialog [data-close]").click();
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();

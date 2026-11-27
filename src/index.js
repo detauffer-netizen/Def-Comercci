@@ -18,6 +18,7 @@ import * as carts from "./routes/carts.js";
 import * as dashboard from "./routes/dashboard.js";
 import * as sales from "./routes/sales.js";
 import * as finance from "./routes/finance.js";
+import * as stock from "./routes/stock.js";
 import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
@@ -73,6 +74,13 @@ const ROUTES = [
   ["DELETE", "/api/products/:id/images/:imageId", panel.deleteProductImage, "products"],
   ["PUT", "/api/products/:id/images/order", panel.reorderProductImages, "products"],
   ["GET", "/api/stock-movements", panel.stockMovements, "products"],
+  ["GET", "/api/stock-adjustments", stock.listAdjustments, "products"],
+  ["POST", "/api/stock-adjustments", stock.createAdjustment, "products"],
+  ["GET", "/api/restock", stock.restockList, "products"],
+  ["GET", "/api/suppliers", stock.listSuppliers, "products"],
+  ["POST", "/api/suppliers", stock.createSupplier, "products"],
+  ["PATCH", "/api/suppliers/:id", stock.updateSupplier, "products"],
+  ["DELETE", "/api/suppliers/:id", stock.deleteSupplier, "products"],
   ["GET", "/api/orders", panel.listOrders, "orders"],
   ["POST", "/api/sales", sales.createSale, "orders"],
   ["POST", "/api/orders/:id/returns", finance.createReturn, "orders"],

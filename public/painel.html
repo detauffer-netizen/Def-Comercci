@@ -200,6 +200,10 @@
         <h1 id="h-produtos">Produtos</h1>
         <button id="new-product" class="btn btn-primary"><svg class="icon"><use href="#i-plus"/></svg>Novo produto</button>
       </div>
+      <div class="stock-actions">
+        <button id="open-restock" class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-alert"/></svg>Preciso repor<b id="restock-count" class="pill" hidden></b></button>
+        <button id="open-stock" class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-layers"/></svg>Movimentar estoque</button>
+      </div>
       <div class="toolbar">
         <label class="search"><svg class="icon"><use href="#i-search"/></svg><span class="sr-only">Buscar produtos</span><input id="product-search" type="search" placeholder="Buscar por nome, SKU ou categoria"></label>
         <select id="product-filter" class="input" aria-label="Filtrar produtos">
@@ -211,6 +215,17 @@
       <details class="card history" id="category-card">
         <summary><svg class="icon"><use href="#i-layers"/></svg>Ordem das categorias na vitrine</summary>
         <div id="category-order"></div>
+      </details>
+      <details class="card history" id="supplier-card">
+        <summary><svg class="icon"><use href="#i-users"/></svg>Fornecedores</summary>
+        <form id="supplier-form" class="supplier-form" novalidate>
+          <div class="grid-2">
+            <label class="field"><span>Nome do fornecedor</span><input name="name" maxlength="100" required></label>
+            <label class="field"><span>WhatsApp do fornecedor</span><input name="phone" type="tel" inputmode="tel" placeholder="Opcional"></label>
+          </div>
+          <div class="row-actions"><button class="btn btn-blue btn-sm" id="save-supplier">Adicionar fornecedor</button><button type="button" class="btn btn-ghost btn-sm" id="cancel-supplier" hidden>Cancelar edição</button></div>
+        </form>
+        <div id="supplier-list"></div>
       </details>
       <details class="card history">
         <summary><svg class="icon"><use href="#i-history"/></svg>Histórico de movimentações de estoque</summary>
@@ -431,6 +446,40 @@
       <span class="spacer"></span>
       <button type="button" class="btn btn-primary" id="another-sale"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Nova venda</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="stock-dialog" aria-labelledby="stock-title">
+  <form id="stock-form" novalidate>
+    <div class="dialog-head"><h2 id="stock-title">Movimentar estoque</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="pay-methods stock-kinds" id="stock-kinds" role="radiogroup" aria-label="Tipo de movimentação">
+        <button type="button" role="radio" data-kind="entry" aria-checked="true">Entrada</button>
+        <button type="button" role="radio" data-kind="loss" aria-checked="false">Perda</button>
+        <button type="button" role="radio" data-kind="count" aria-checked="false">Inventário</button>
+      </div>
+      <p class="muted stock-help" id="stock-help"></p>
+      <label class="field"><span>Produto</span><select name="product" id="stock-product" class="input" required></select></label>
+      <label class="field" id="stock-variant-field" hidden><span>Variação</span><select name="variant" id="stock-variant" class="input"></select></label>
+      <p class="muted" id="stock-current" role="status"></p>
+      <div class="grid-2">
+        <label class="field"><span id="stock-qty-label">Quantidade que chegou</span><input name="quantity" type="number" min="0" step="1" inputmode="numeric" required></label>
+        <label class="field" id="stock-cost-field"><span>Custo por unidade (R$)</span><input name="unit_cost" inputmode="decimal" placeholder="Opcional"></label>
+        <label class="field" id="stock-supplier-field"><span>Fornecedor</span><input name="supplier" maxlength="100" list="stock-supplier-options" placeholder="Opcional"><datalist id="stock-supplier-options"></datalist></label>
+        <label class="field"><span>Observação</span><input name="reason" maxlength="200" placeholder="Ex.: nota 123, quebra no transporte"></label>
+      </div>
+      <p class="muted" id="stock-cost-note" hidden>O custo do produto é atualizado pela média entre o estoque atual e esta compra.</p>
+      <p id="stock-error" class="form-error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="save-stock">Registrar</button></div>
+  </form>
+</dialog>
+
+<dialog id="restock-dialog" aria-labelledby="restock-title">
+  <div class="dialog-head"><h2 id="restock-title">Preciso repor</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <div class="dialog-body">
+    <p class="muted">Itens no alerta de reposição ou abaixo, já descontado o que está reservado em pedidos pendentes. Ajuste as quantidades e envie a lista ao fornecedor.</p>
+    <div id="restock-list"></div>
   </div>
 </dialog>
 
