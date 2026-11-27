@@ -448,6 +448,49 @@ try {
     await panel.locator("#app").waitFor();
   });
 
+  await check("entrega com taxa no checkout, endereço no pedido e impressão", async () => {
+    await panel.goto(url + "/painel#loja");
+    const form = panel.locator("#settings");
+    await form.getByLabel("Cliente pode retirar na loja").check();
+    await form.getByLabel("Faço entregas").check();
+    await form.getByLabel("Taxa de entrega (R$)").fill("8,00");
+    await form.getByLabel("Grátis a partir de (R$)").fill("200,00");
+    await form.getByRole("button", { name: "Salvar alterações" }).click();
+    await panel.locator("#toast", { hasText: "Configurações salvas" }).waitFor();
+
+    whatsappUrl = "";
+    await shop.goto(url + "/loja/moda-da-ana");
+    await shop.locator("#products .product", { hasText: "Camiseta Básica" }).getByRole("button", { name: "Escolher opção" }).click();
+    await shop.locator("#product-dialog").getByRole("radio", { name: "P / Azul" }).click();
+    await shop.locator("#product-dialog").getByRole("button", { name: "Adicionar ao pedido" }).click();
+    await shop.locator("#cart-bar").click();
+    const cart = shop.locator("#cart-dialog");
+    await cart.locator("#ship-box").waitFor();
+    assert.match(await cart.locator("#fee-note").textContent(), /Taxa de R\$\s?8,00 · grátis acima de R\$\s?200,00/);
+    await cart.getByText("Receber em casa").click();
+    assert.match(await cart.locator("#cart-fee").textContent(), /8,00/);
+    assert.match(await cart.locator("#cart-sum").textContent(), /67,90/);
+    await cart.getByLabel("Nome").fill("Pedro Entrega");
+    await cart.getByLabel("Telefone / WhatsApp").fill("(54) 94444-3333");
+    await cart.getByRole("button", { name: "Enviar pedido pelo WhatsApp" }).click();
+    await cart.locator("#checkout-error", { hasText: "endereço" }).waitFor();
+    await cart.getByLabel("Endereço de entrega").fill("Rua das Acácias, 120 - Centro");
+    await noDialogOverflow(cart, "carrinho com entrega");
+    await shot(shop, "15-entrega-mobile");
+    await cart.getByRole("button", { name: "Enviar pedido pelo WhatsApp" }).click();
+    await shop.waitForURL(/wa\.me/);
+    const text = decodeURIComponent(whatsappUrl);
+    assert.match(text, /Entrega em: Rua das Acácias, 120 - Centro/);
+    assert.match(text, /Total: R\$\s?67,90/);
+
+    await panel.goto(url + "/painel#pedidos");
+    const order = panel.locator(".order", { hasText: "Pedro Entrega" });
+    await order.waitFor();
+    assert.match(await order.textContent(), /Entrega \(taxa R\$\s?8,00\)Rua das Acácias/);
+    await order.getByRole("button", { name: /Imprimir pedido/ }).click();
+    await panel.waitForFunction(() => !document.body.classList.contains("printing"), null, { timeout: 5000 });
+  });
+
   await check("gráfico de vendas por dia com dica, períodos e tabela", async () => {
     await panel.goto(url + "/painel#inicio");
     const perf = panel.locator("#perf-card");

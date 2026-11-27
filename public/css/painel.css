@@ -18,7 +18,6 @@
 .slug-input input { border: 0 !important; outline: none !important; padding-left: 0 !important; }
 .slug-input:focus-within { border-color: var(--blue-600); }
 .small-note { font-size: 13px; margin-top: 12px; }
-.form-error { color: var(--danger); background: var(--danger-bg); padding: .6rem .8rem; border-radius: 10px; margin: 12px 0 0; font-weight: 500; }
 @media (min-width: 900px) {
   .auth { grid-template-columns: 1.1fr 1fr; }
   .auth-side { padding: 56px; display: flex; flex-direction: column; justify-content: center; }
@@ -223,3 +222,16 @@
 .coupon small { display: block; color: var(--muted); margin-top: 3px; }
 .coupon.off { opacity: .6; }
 .order-discount { color: var(--ok); }
+
+.delivery-set { margin-top: 4px; }
+.order-ship { font-size: 14px; margin: 0 0 10px; white-space: pre-wrap; }
+.order-ship strong { display: block; }
+@media print {
+  body.printing > *:not(#app), body.printing .sidebar, body.printing .topbar, body.printing .view:not(.print-view),
+  body.printing .view-head, body.printing .chips, body.printing .order:not(.print-target), body.printing .order-actions, body.printing #toast { display: none !important; }
+  body.printing, body.printing .main { background: #fff; margin: 0; padding: 0; }
+  body.printing .order-list { display: block; }
+  body.printing .order.print-target { box-shadow: none; border: 0; font-size: 13pt; }
+  body.printing .print-only { display: block !important; }
+}
+.print-only { display: none; }

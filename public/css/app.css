@@ -115,3 +115,4 @@ dialog::backdrop { background: rgb(7 22 48 / 55%); }
   .dialog-foot .btn { padding-left: .9rem; padding-right: .9rem; }
   .hide-xs { display: none; }
 }
+.form-error { color: var(--danger); background: var(--danger-bg); padding: .6rem .8rem; border-radius: 10px; margin: 12px 0 0; font-weight: 500; }

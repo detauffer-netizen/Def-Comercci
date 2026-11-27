@@ -92,3 +92,12 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .cart-row { display: flex; justify-content: space-between; padding: 4px 0; color: var(--muted); }
 .cart-row.discount { color: var(--ok); font-weight: 600; }
 .cart-row + .cart-sum { border-top: 1px solid var(--line); margin-top: 6px; }
+
+/* Entrega e retirada */
+.ship-box { border: 0; padding: 0; margin: 14px 0 4px; display: grid; gap: 8px; }
+.ship-box legend { font-weight: 700; margin-bottom: 8px; }
+.ship-opt { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+.ship-opt input { width: 20px; height: 20px; accent-color: var(--accent); }
+.ship-opt b, .ship-opt small { display: block; }
+.ship-opt small { color: var(--muted); }
+.ship-opt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
