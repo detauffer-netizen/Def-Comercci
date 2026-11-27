@@ -6,7 +6,7 @@ import { audit, requireOwner } from "../lib/session.js";
 import {
   MAX_IMAGES_PER_PRODUCT, deleteImages, imageKey, imageUrl, putImage, readImageUpload, requireBucket,
 } from "../lib/images.js";
-import { effectivePrice, imagesByProduct, variantsByProduct } from "./public.js";
+import { effectivePrice, imagesByProduct, parseCategoryOrder, variantsByProduct } from "./public.js";
 import * as v from "../lib/validate.js";
 
 function storeView(store) {
@@ -57,6 +57,20 @@ export async function updateSettings(request, env, session) {
     .run();
   await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "store.settings" });
   return json({ ok: true });
+}
+
+// Ordem das categorias na vitrine.
+export async function setCategoryOrder(request, env, session) {
+  const order = (await readJson(request)).order;
+  if (!Array.isArray(order) || order.length > 100) throw new HttpError(400, "Lista de categorias inválida");
+  const clean = [...new Set(order.map((c) => v.cleanText(c, 80)).filter(Boolean))];
+  await env.DB.prepare("UPDATE stores SET category_order=? WHERE id=?").bind(JSON.stringify(clean), session.store.id).run();
+  return json({ ok: true, order: clean });
+}
+
+export async function getCategoryOrder(request, env, session) {
+  const row = await env.DB.prepare("SELECT category_order FROM stores WHERE id=?").bind(session.store.id).first();
+  return json({ order: parseCategoryOrder(row.category_order) });
 }
 
 // ---------- Produtos ----------
