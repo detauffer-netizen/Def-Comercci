@@ -44,9 +44,10 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.6.0: variações,
+Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.7.0: variações,
 equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
-avisos de pedidos, nova landing, cupons, PWA e monitoramento de erros. Detalhes e
+avisos de pedidos, nova landing, cupons, PWA, monitoramento de erros, entrega e
+retirada, ordem da vitrine e impressão de pedidos. Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades
@@ -56,7 +57,7 @@ próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
   `wrangler d1 migrations apply --remote`, execute `scripts/bootstrap-d1-migrations.sql`.
 - Imagens: o navegador comprime para WebP (máx. 1600 px) antes do upload; o servidor
   valida os bytes iniciais (JPEG/PNG/WebP), limita a 2 MB e grava em `stores/<store_id>/...`.
-- Cupons: o desconto é calculado em `couponDiscount` (`src/routes/public.js`) e o uso é consumido com `UPDATE ... WHERE uses < max_uses`; `orders.total_cents` é sempre o valor final, já com desconto.
+- Cupons: o desconto é calculado em `couponDiscount` (`src/routes/public.js`) e o uso é consumido com `UPDATE ... WHERE uses < max_uses`; `orders.total_cents` é sempre o valor final: subtotal − desconto + taxa de entrega (`fulfillmentFor`).
 - PWA: `public/sw.js` usa rede primeiro e só guarda o painel e seus arquivos; ao mudar a lista de arquivos, troque o nome do cache (`def-painel-vN`).
 - `test/helpers/env.js` implementa o subconjunto da API do D1 usado pelo código. Se
   passar a usar outro método do D1, implemente-o lá também.

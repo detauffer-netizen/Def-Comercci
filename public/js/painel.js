@@ -501,6 +501,7 @@ function openProduct(product) {
     f.sku.value = product.sku || "";
     f.category.value = product.category || "";
     f.featured.checked = product.featured;
+    f.position.value = product.position || "";
     f.active.checked = product.active;
   } else {
     f.active.checked = true;
@@ -625,6 +626,7 @@ function readProductForm() {
   return {
     name: f.name.value, description: f.description.value, price_cents: price, promo_price_cents: promo,
     stock: v.variants.length ? 0 : stock, sku: f.sku.value, category: f.category.value, featured: f.featured.checked, active: f.active.checked,
+    position: f.position.value ? Number(f.position.value) : 0,
     variants: v.variants,
   };
 }
@@ -698,6 +700,7 @@ function renderOrders() {
     const change = (status, label, cls) => h("button", { class: `btn btn-sm ${cls}`, onclick: (e) => setOrderStatus(o, status, e.currentTarget) }, label);
     if (o.status === "pending") actions.push(change("confirmed", "Confirmar e baixar estoque", "btn-blue"), change("cancelled", "Cancelar", "btn-danger"));
     if (o.status === "confirmed") actions.push(change("completed", "Marcar como concluído", "btn-blue"), change("cancelled", "Cancelar e repor estoque", "btn-danger"));
+    actions.push(h("button", { class: "btn btn-sm btn-ghost", "aria-label": `Imprimir pedido ${o.code}`, onclick: (e) => printOrder(e.currentTarget.closest(".order")) }, icon("print", "icon icon-sm"), "Imprimir"));
     if (o.customer_phone) {
       const msg = `Olá, ${o.customer_name.split(" ")[0]}! Aqui é da ${store.name}. Sobre o seu pedido #${o.code} (${money(o.total_cents)}): `;
       actions.push(h("a", { class: "btn btn-sm btn-ghost", href: whatsappLink(o.customer_phone, msg), target: "_blank", rel: "noopener" }, icon("chat", "icon icon-sm"), "WhatsApp"));
@@ -711,9 +714,31 @@ function renderOrders() {
         ...o.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
         o.discount_cents ? h("div", { class: "order-discount" }, h("span", { text: `Cupom ${o.coupon_code}` }), h("span", { text: `− ${money(o.discount_cents)}` })) : null,
         h("div", { style: { fontWeight: "700", marginTop: "6px" } }, h("span", { text: "Total" }), h("span", { text: money(o.total_cents) }))),
+      o.fulfillment ? h("p", { class: "order-ship" },
+        h("strong", { text: o.fulfillment === "pickup" ? "Retirada na loja" : `Entrega${o.delivery_fee_cents ? ` (taxa ${money(o.delivery_fee_cents)})` : " (grátis)"}` }),
+        o.fulfillment === "delivery" ? o.address : null) : null,
       o.notes ? h("p", { class: "order-notes", text: `Observações: ${o.notes}` }) : null,
       h("div", { class: "order-actions" }, ...actions));
   }));
+}
+
+// Imprime só o pedido escolhido (folha A4 ou impressora térmica).
+function printOrder(card) {
+  const header = h("div", { class: "print-only" }, h("h2", { text: state.me.store.name }), h("p", { text: `Impresso em ${new Date().toLocaleString("pt-BR")}` }));
+  card.prepend(header);
+  card.classList.add("print-target");
+  card.closest(".view").classList.add("print-view");
+  document.body.classList.add("printing");
+  const done = () => {
+    header.remove();
+    card.classList.remove("print-target");
+    card.closest(".view")?.classList.remove("print-view");
+    document.body.classList.remove("printing");
+    window.removeEventListener("afterprint", done);
+  };
+  window.addEventListener("afterprint", done);
+  window.print();
+  setTimeout(done, 1000);
 }
 
 async function setOrderStatus(order, status, button) {
@@ -775,6 +800,11 @@ async function loadStore() {
   f.description.value = s.description || "";
   f.whatsapp.value = s.whatsapp || "";
   f.accent.value = s.accent || "#2563eb";
+  f.pickup_enabled.checked = s.pickup_enabled;
+  f.delivery_on.checked = s.delivery_fee_cents !== null;
+  f.delivery_fee.value = s.delivery_fee_cents === null ? "" : centsToInput(s.delivery_fee_cents);
+  f.free_above.value = centsToInput(s.free_delivery_above_cents);
+  $("delivery-fields").hidden = !f.delivery_on.checked;
   const url = `${location.origin}/loja/${s.slug}`;
   $("share-url").value = url;
   $("share-whatsapp").href = `https://wa.me/?text=${encodeURIComponent(`Confira o catálogo da ${s.name}: ${url}`)}`;
@@ -944,7 +974,14 @@ async function saveSettings(event) {
   event.preventDefault();
   const button = event.submitter;
   await busy(button, async () => {
-    await api("/api/settings", { method: "PATCH", body: Object.fromEntries(new FormData(event.target)) });
+    const f = event.target.elements;
+    const fee = f.delivery_on.checked ? parseMoney(f.delivery_fee.value) ?? 0 : null;
+    const free = f.delivery_on.checked ? parseMoney(f.free_above.value) : null;
+    if (Number.isNaN(fee) || Number.isNaN(free)) throw new Error("Valor de entrega inválido. Use, por exemplo, 8,00.");
+    await api("/api/settings", { method: "PATCH", body: {
+      name: f.name.value, description: f.description.value, whatsapp: f.whatsapp.value, accent: f.accent.value,
+      pickup_enabled: f.pickup_enabled.checked, delivery_fee_cents: fee, free_delivery_above_cents: free,
+    } });
     toast("Configurações salvas.");
     await loadStore();
   });
@@ -1096,6 +1133,7 @@ $("add-variant").addEventListener("click", () => {
 });
 $("team-form").addEventListener("submit", addMember);
 $("coupon-form").addEventListener("submit", createCoupon);
+$("delivery-on").addEventListener("change", (e) => { $("delivery-fields").hidden = !e.target.checked; });
 
 // ---------- Aplicativo instalável e conexão ----------
 

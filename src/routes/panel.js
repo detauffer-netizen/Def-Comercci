@@ -18,6 +18,9 @@ function storeView(store) {
     description: store.description,
     logo_url: imageUrl(store.logo_key),
     banner_url: imageUrl(store.banner_key),
+    delivery_fee_cents: store.delivery_fee_cents ?? null,
+    free_delivery_above_cents: store.free_delivery_above_cents ?? null,
+    pickup_enabled: !!store.pickup_enabled,
   };
 }
 
@@ -41,8 +44,16 @@ export async function updateSettings(request, env, session) {
   const description = v.cleanText(body.description ?? session.store.description, 300, { multiline: true });
   const whatsapp = v.phone(body.whatsapp, { optional: true });
   const accent = v.color(body.accent ?? session.store.accent);
-  await env.DB.prepare("UPDATE stores SET name=?,description=?,whatsapp=?,accent=? WHERE id=?")
-    .bind(name, description, whatsapp, accent, session.store.id)
+  const pick = (key) => (key in body ? body[key] : session.store[key]);
+  const fee = pick("delivery_fee_cents");
+  const free = pick("free_delivery_above_cents");
+  const deliveryFee = fee === null || fee === undefined || fee === "" ? null : v.cents(fee, "taxa de entrega");
+  const freeAbove = free === null || free === undefined || free === "" ? null : v.cents(free, "frete grátis a partir de");
+  const pickup = v.flag(pick("pickup_enabled"));
+  await env.DB.prepare(
+    "UPDATE stores SET name=?,description=?,whatsapp=?,accent=?,delivery_fee_cents=?,free_delivery_above_cents=?,pickup_enabled=? WHERE id=?",
+  )
+    .bind(name, description, whatsapp, accent, deliveryFee, freeAbove, pickup, session.store.id)
     .run();
   await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "store.settings" });
   return json({ ok: true });
@@ -101,6 +112,7 @@ function productInput(body) {
     sku: skuText(body.sku),
     featured: v.flag(body.featured),
     active: body.active === undefined ? 1 : v.flag(body.active),
+    position: body.position === undefined || body.position === "" ? 0 : v.quantity(body.position, "ordem na vitrine", 9999),
     variants,
   };
 }
@@ -137,8 +149,8 @@ async function variantStatements(db, storeId, productId, variants) {
 
 export async function listProducts(request, env, session) {
   const rows = await env.DB.prepare(
-    `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active
-       FROM products WHERE store_id=? ORDER BY active DESC, name COLLATE NOCASE`,
+    `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active,position
+       FROM products WHERE store_id=? ORDER BY active DESC, featured DESC, position, name COLLATE NOCASE`,
   ).bind(session.store.id).all();
   const images = await imagesByProduct(env.DB, session.store.id);
   const variants = await variantsByProduct(env.DB, session.store.id);
@@ -158,9 +170,9 @@ export async function createProduct(request, env, session) {
   const id = crypto.randomUUID();
   const statements = [
     db.prepare(
-      `INSERT INTO products(id,store_id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-    ).bind(id, session.store.id, p.name, p.description, p.price_cents, p.promo_price_cents, p.stock, p.category, p.sku, p.featured, p.active),
+      `INSERT INTO products(id,store_id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active,position)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(id, session.store.id, p.name, p.description, p.price_cents, p.promo_price_cents, p.stock, p.category, p.sku, p.featured, p.active, p.position),
   ];
   if (p.variants?.length) statements.push(...(await variantStatements(db, session.store.id, id, p.variants)));
   await db.batch(statements).catch(skuConflict);
@@ -177,10 +189,10 @@ export async function updateProduct(request, env, session, params) {
   const statements = p.variants === undefined ? [] : await variantStatements(db, session.store.id, id, p.variants);
   // Se o produto tem variações, o estoque vem delas e não é alterado aqui.
   statements.push(db.prepare(
-    `UPDATE products SET name=?,description=?,price_cents=?,promo_price_cents=?,category=?,sku=?,featured=?,active=?,
+    `UPDATE products SET name=?,description=?,price_cents=?,promo_price_cents=?,category=?,sku=?,featured=?,active=?,position=?,
             stock = CASE WHEN EXISTS (SELECT 1 FROM product_variants WHERE product_id=products.id) THEN stock ELSE ? END
       WHERE id=? AND store_id=?`,
-  ).bind(p.name, p.description, p.price_cents, p.promo_price_cents, p.category, p.sku, p.featured, p.active, p.stock, id, session.store.id));
+  ).bind(p.name, p.description, p.price_cents, p.promo_price_cents, p.category, p.sku, p.featured, p.active, p.position, p.stock, id, session.store.id));
   await db.batch(statements).catch(skuConflict);
   await audit(db, { storeId: session.store.id, userId: session.user.id, action: "product.updated", target: id, detail: p.name });
   return json({ ok: true });
@@ -270,7 +282,8 @@ export async function listOrders(request, env, session) {
   const status = new URL(request.url).searchParams.get("status");
   const filter = STATUSES.includes(status) ? status : null;
   const rows = await env.DB.prepare(
-    `SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes
+    `SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes,
+            fulfillment,delivery_fee_cents,address
        FROM orders WHERE store_id=? AND (? IS NULL OR status=?)
       ORDER BY created_at DESC LIMIT 200`,
   ).bind(session.store.id, filter, filter).all();

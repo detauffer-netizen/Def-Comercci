@@ -44,6 +44,7 @@
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z"/><path d="M9 6v12" stroke-dasharray="2 2"/></symbol>
   <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></symbol>
 </svg>
 
@@ -203,6 +204,16 @@
           <label class="field"><span>Descrição curta</span><textarea name="description" maxlength="300" placeholder="Ex.: Moda feminina com entrega em toda a cidade"></textarea></label>
           <label class="field"><span>WhatsApp de atendimento</span><input name="whatsapp" inputmode="tel" placeholder="55 54 99999-9999"><small>Com DDI e DDD. É para este número que os pedidos são enviados.</small></label>
           <label class="field"><span>Cor principal da vitrine</span><input type="color" name="accent"></label>
+          <fieldset class="perms delivery-set">
+            <legend>Entrega e retirada</legend>
+            <label class="check"><input type="checkbox" name="pickup_enabled"> <span>Cliente pode retirar na loja</span></label>
+            <label class="check"><input type="checkbox" name="delivery_on" id="delivery-on"> <span>Faço entregas</span></label>
+            <div class="grid-2" id="delivery-fields">
+              <label class="field"><span>Taxa de entrega (R$)</span><input name="delivery_fee" inputmode="decimal" placeholder="0,00"></label>
+              <label class="field"><span>Grátis a partir de (R$)</span><input name="free_above" inputmode="decimal" placeholder="Opcional"></label>
+            </div>
+            <small class="muted">Sem nenhuma opção marcada, a forma de entrega é combinada pelo WhatsApp.</small>
+          </fieldset>
           <button class="btn btn-blue">Salvar alterações</button>
         </form>
         <div>
@@ -317,6 +328,7 @@
         </div>
       </fieldset>
       <label class="field"><span>Categoria</span><input name="category" maxlength="80" list="category-options" placeholder="Ex.: Camisetas"><datalist id="category-options"></datalist></label>
+      <label class="field"><span>Ordem na vitrine</span><input name="position" type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="0"><small>Números menores aparecem primeiro. Destaques ficam sempre no topo.</small></label>
       <label class="check"><input type="checkbox" name="featured"> <span>Destacar na vitrine</span></label>
       <label class="check"><input type="checkbox" name="active" checked> <span>Visível na vitrine</span></label>
       <p id="product-error" class="form-error" role="alert" hidden></p>

@@ -91,11 +91,18 @@
       </div>
       <div class="cart-row" id="cart-sub-row" hidden><span>Subtotal</span><span id="cart-subtotal"></span></div>
       <div class="cart-row discount" id="cart-disc-row" hidden><span id="cart-disc-label"></span><span id="cart-disc-value"></span></div>
+      <div class="cart-row" id="cart-fee-row" hidden><span>Entrega</span><span id="cart-fee"></span></div>
       <div class="cart-sum"><span>Total</span><strong id="cart-sum">R$ 0,00</strong></div>
+      <fieldset class="ship-box" id="ship-box" hidden>
+        <legend>Como você quer receber?</legend>
+        <label class="ship-opt" id="opt-pickup"><input type="radio" name="fulfillment" value="pickup"><span><b>Retirar na loja</b><small>Sem custo</small></span></label>
+        <label class="ship-opt" id="opt-delivery"><input type="radio" name="fulfillment" value="delivery"><span><b>Receber em casa</b><small id="fee-note"></small></span></label>
+      </fieldset>
       <h3>Seus dados</h3>
       <label class="field"><span>Nome</span><input name="customer_name" maxlength="100" autocomplete="name" required></label>
       <label class="field"><span>Telefone / WhatsApp</span><input name="customer_phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(54) 99999-9999" required></label>
-      <label class="field"><span>Observações</span><textarea name="notes" maxlength="500" placeholder="Endereço de entrega, tamanho, forma de pagamento..."></textarea></label>
+      <label class="field" id="address-field" hidden><span>Endereço de entrega</span><textarea name="address" maxlength="300" autocomplete="street-address" placeholder="Rua, número, bairro e complemento"></textarea></label>
+      <label class="field"><span>Observações</span><textarea name="notes" maxlength="500" placeholder="Forma de pagamento, ponto de referência, horário..."></textarea></label>
       <small class="muted">Seu nome e telefone são enviados apenas para esta loja, para atender o pedido.</small>
       <p id="checkout-error" class="form-error" role="alert" hidden></p>
     </div>

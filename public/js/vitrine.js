@@ -126,7 +126,11 @@ function renderCart() {
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
   const preview = coupon.preview && coupon.preview.subtotal_cents === subtotal ? coupon.preview : null;
-  const total = preview ? preview.total_cents : subtotal;
+  const afterDiscount = preview ? preview.total_cents : subtotal;
+  const fee = deliveryFee(afterDiscount);
+  const total = afterDiscount + fee;
+  $("cart-fee-row").hidden = selectedFulfillment() !== "delivery" || !count;
+  $("cart-fee").textContent = fee ? money(fee) : "Grátis";
   $("cart-sub-row").hidden = !preview;
   $("cart-disc-row").hidden = !preview;
   if (preview) {
@@ -204,6 +208,36 @@ async function share(title, url) {
   }
 }
 
+function selectedFulfillment() {
+  return document.querySelector('input[name="fulfillment"]:checked')?.value || "";
+}
+
+// Mesma regra do servidor: frete grátis compara o valor já com desconto.
+function deliveryFee(amount) {
+  const d = store?.delivery;
+  if (!d?.delivery || selectedFulfillment() !== "delivery") return 0;
+  return d.free_above_cents !== null && amount >= d.free_above_cents ? 0 : d.fee_cents;
+}
+
+function setupDelivery() {
+  const d = store.delivery || {};
+  $("ship-box").hidden = !d.pickup && !d.delivery;
+  $("opt-pickup").hidden = !d.pickup;
+  $("opt-delivery").hidden = !d.delivery;
+  $("fee-note").textContent = !d.delivery ? "" : (d.fee_cents ? `Taxa de ${money(d.fee_cents)}` : "Entrega grátis") +
+    (d.free_above_cents !== null && d.fee_cents ? ` · grátis acima de ${money(d.free_above_cents)}` : "");
+  const only = d.pickup && !d.delivery ? "pickup" : d.delivery && !d.pickup ? "delivery" : "";
+  if (only) document.querySelector(`input[name="fulfillment"][value="${only}"]`).checked = true;
+  updateShipping();
+}
+
+function updateShipping() {
+  const delivery = selectedFulfillment() === "delivery";
+  $("address-field").hidden = !delivery;
+  $("checkout").elements.address.required = delivery;
+  renderCart();
+}
+
 function cartItemsPayload() {
   return cartLines().map((l) => ({ id: l.product.id, ...(l.variant ? { variant_id: l.variant.id } : {}), quantity: l.qty }));
 }
@@ -255,8 +289,11 @@ function orderMessage(order, data) {
     "",
     order.discount_cents ? `Subtotal: ${money(order.subtotal_cents)}` : null,
     order.discount_cents ? `Cupom ${order.coupon_code}: − ${money(order.discount_cents)}` : null,
+    order.fulfillment === "delivery" ? `Entrega: ${order.delivery_fee_cents ? money(order.delivery_fee_cents) : "grátis"}` : null,
     `Total: ${money(order.total_cents)}`,
     `Nome: ${data.customer_name}`,
+    order.fulfillment === "pickup" ? "Retirada na loja" : null,
+    order.fulfillment === "delivery" ? `Entrega em: ${order.address}` : null,
     data.notes ? `Observações: ${data.notes}` : null,
   ].filter((l) => l !== null).join("\n");
 }
@@ -270,6 +307,8 @@ async function checkout(event) {
   const digits = String(data.customer_phone).replace(/\D/g, "");
   if (!data.customer_name.trim()) return showError("Informe seu nome.");
   if (digits.length < 10) return showError("Informe um telefone com DDD.");
+  if (!$("ship-box").hidden && !selectedFulfillment()) return showError("Escolha se vai retirar na loja ou receber em casa.");
+  if (selectedFulfillment() === "delivery" && String(data.address || "").trim().length < 8) return showError("Informe o endereço de entrega.");
   const button = $("send-order");
   button.disabled = true;
   try {
@@ -351,6 +390,7 @@ async function start() {
     if (buyer) for (const k of ["customer_name", "customer_phone"]) $("checkout").elements[k].value = buyer[k] || "";
   } catch { /* opcional */ }
   loadCart();
+  setupDelivery();
   renderCategories();
   renderProducts();
   renderCart();
@@ -364,6 +404,7 @@ $("search").addEventListener("input", renderProducts);
 $("cart-bar").addEventListener("click", () => $("cart-dialog").showModal());
 $("checkout").addEventListener("submit", checkout);
 $("share-store").addEventListener("click", () => share(store.name, `${location.origin}/loja/${slug}`));
+for (const radio of document.querySelectorAll('input[name="fulfillment"]')) radio.addEventListener("change", updateShipping);
 $("apply-coupon").addEventListener("click", () => applyCoupon($("coupon-input").value));
 $("coupon-input").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
