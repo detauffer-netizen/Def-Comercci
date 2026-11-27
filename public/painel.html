@@ -71,7 +71,7 @@
         <small>Letras minúsculas, números e hífen. Ex.: moda-da-ana</small></label>
       <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
       <label class="field"><span>Senha</span><input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small>Mínimo de 12 caracteres.</small></label>
-      <label class="check"><input type="checkbox" name="terms" required> <span>Li e concordo com o tratamento dos meus dados para operar a loja, conforme a LGPD.</span></label>
+      <label class="check"><input type="checkbox" name="terms" required> <span>Li e concordo com os <a href="/termos" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.</span></label>
       <button class="btn btn-primary btn-block">Criar loja grátis</button>
     </form>
     <p id="auth-error" class="form-error" role="alert" hidden></p>
@@ -112,6 +112,22 @@
         <ol id="onboarding-steps" class="steps"></ol>
       </div>
       <div class="kpis" id="kpis"></div>
+      <section class="card perf" id="perf-card" aria-labelledby="h-perf" hidden>
+        <div class="card-head perf-head">
+          <h2 id="h-perf">Vendas por dia</h2>
+          <div class="chips" id="perf-periods" role="group" aria-label="Período">
+            <button class="chip" data-days="7" aria-pressed="false">7 dias</button>
+            <button class="chip" data-days="30" aria-pressed="true">30 dias</button>
+            <button class="chip" data-days="90" aria-pressed="false">90 dias</button>
+          </div>
+        </div>
+        <div class="perf-summary" id="perf-summary"></div>
+        <div class="chart" id="perf-chart"></div>
+        <p class="chart-note muted">Pedidos confirmados e concluídos, por dia (horário de Brasília).</p>
+        <details class="chart-table"><summary>Ver como tabela</summary><div id="perf-table"></div></details>
+        <h3 class="top-title">Mais vendidos no período</h3>
+        <div id="perf-top"></div>
+      </section>
       <div class="two-col">
         <div class="card" id="recent-card">
           <div class="card-head"><h2>Pedidos recentes</h2><a href="#pedidos" class="link">Ver todos</a></div>
@@ -220,6 +236,15 @@
               </form>
             </details>
           </div>
+          <div class="card" id="privacy-card">
+            <h2>Privacidade e dados</h2>
+            <p class="muted">Baixe uma cópia de todos os dados da loja ou exclua a loja definitivamente (LGPD).</p>
+            <div class="privacy-actions">
+              <button class="btn btn-ghost" id="export-data"><svg class="icon icon-sm"><use href="#i-download"/></svg>Exportar dados</button>
+              <button class="btn btn-danger" id="open-delete-store"><svg class="icon icon-sm"><use href="#i-trash"/></svg>Excluir loja</button>
+            </div>
+            <p class="muted small-note"><a href="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a> · <a href="/termos" target="_blank" rel="noopener">Termos de Uso</a></p>
+          </div>
           <details class="card history" id="audit-card">
             <summary><svg class="icon"><use href="#i-history"/></svg>Registro de atividades</summary>
             <div id="audit-list"></div>
@@ -286,6 +311,18 @@
       <p id="password-error" class="form-error" role="alert" hidden></p>
     </div>
     <div class="dialog-foot"><button class="btn btn-primary">Salvar nova senha</button></div>
+  </form>
+</dialog>
+
+<dialog id="delete-store-dialog" aria-labelledby="delete-store-title">
+  <form id="delete-store-form" novalidate>
+    <div class="dialog-head"><h2 id="delete-store-title">Excluir loja</h2><button type="button" class="btn btn-ghost btn-icon" data-close-dialog aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <p class="form-error"><strong>Esta ação não pode ser desfeita.</strong> A vitrine sai do ar e serão apagados produtos, fotos, pedidos, clientes, equipe e registros. Recomendamos exportar os dados antes.</p>
+      <label class="field"><span>Digite o endereço da loja: <strong id="delete-slug-hint"></strong></span><input name="confirm_slug" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>
+      <label class="field"><span>Sua senha</span><input name="password" type="password" autocomplete="current-password" required></label>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close-dialog>Cancelar</button><button class="btn btn-danger" id="confirm-delete-store">Excluir definitivamente</button></div>
   </form>
 </dialog>
 
