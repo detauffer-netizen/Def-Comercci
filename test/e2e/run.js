@@ -603,6 +603,34 @@ try {
     await page.close();
   });
 
+  await check("IA: cadastro por mensagem preenche o formulário para revisão e gera divulgação", async () => {
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator(".product-item").first().waitFor();
+    await panel.getByRole("button", { name: "Novo produto" }).click();
+    const dialog = panel.locator("#product-dialog");
+    await dialog.locator("#ai-box").waitFor();
+    await dialog.getByLabel("Descreva o produto como você falaria no WhatsApp").fill("saia midi plissada P e M 89,90");
+    await dialog.getByRole("button", { name: "Gerar cadastro" }).click();
+    await dialog.locator("#ai-note", { hasText: "Sugestão da IA aplicada" }).waitFor();
+    assert.equal(await dialog.getByLabel("Nome do produto").inputValue(), "Saia Midi Plissada");
+    assert.equal(await dialog.getByLabel("Preço (R$)", { exact: true }).inputValue(), "89,90");
+    assert.equal(await dialog.locator("#variant-rows .variant-row").count(), 2);
+    assert.equal(await dialog.locator("#product-form .ai-filled").count() >= 3, true);
+    await noDialogOverflow(dialog, "IA no cadastro");
+    await shot(panel, "18-ia-cadastro-mobile");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    assert.equal(await panel.locator(".product-item", { hasText: "Saia Midi Plissada" }).count(), 0, "nada salvo sem confirmação");
+
+    await panel.goto(url + "/painel#loja");
+    const card = panel.locator("#ai-campaign-card");
+    await card.waitFor();
+    await card.getByLabel("O que você quer divulgar?").fill("promoção de fim de semana");
+    await card.getByRole("button", { name: "Gerar textos" }).click();
+    await card.locator("textarea", { hasText: "Oferta especial" }).waitFor();
+    assert.match(await card.locator("#campaign-out").textContent(), /Gerado por IA/);
+    await noHorizontalScroll(panel, "divulgação IA");
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();

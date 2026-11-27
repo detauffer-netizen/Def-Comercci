@@ -16,6 +16,7 @@ pedidos pelo WhatsApp e controlarem estoque, clientes e vendas em um painel.
 | Banco de dados | Cloudflare D1 `def-commerce-db` (SQLite), migrações em `migrations/` |
 | Imagens | Cloudflare R2, binding `IMAGES` (opcional; sem ele o upload responde 503) |
 | Páginas | Arquivos estáticos em `public/` servidos pelo binding `ASSETS` |
+| Inteligência artificial | Cloudflare Workers AI, binding `AI` (Llama 3.3 70B para texto, Llama 4 Scout para fotos); limite diário por loja em `AI_DAILY_LIMIT` |
 
 ```
 src/
@@ -45,7 +46,7 @@ banco. O navegador nunca escolhe a loja. Arquivos no R2 ficam em
 Requisitos: Node.js 22.5 ou mais recente.
 
 ```bash
-npm test             # testes de API e integração (98 testes, D1 simulado com SQLite real)
+npm test             # testes de API e integração (107 testes, D1 simulado com SQLite real)
 npm run check        # sintaxe dos scripts e conformidade com a CSP
 npm run test:e2e     # navegador real: cadastro → produto → vitrine → pedido → confirmação
 node test/e2e/server.js   # sobe o sistema localmente em http://localhost:8787

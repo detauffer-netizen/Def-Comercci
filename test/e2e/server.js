@@ -3,10 +3,18 @@
 
 import { createServer } from "node:http";
 import worker from "../../src/index.js";
-import { createEnv } from "../helpers/env.js";
+import { createEnv, fakeAI } from "../helpers/env.js";
+
+// IA simulada com respostas fixas: o E2E verifica a interface, não o modelo.
+const demoAI = fakeAI((model, input) => {
+  if (input.response_format?.json_schema?.properties?.whatsapp_message) {
+    return { response: { whatsapp_message: "Oferta especial na Moda da Ana! Confira o catálogo.", instagram_caption: "Novidades da semana #moda", ideas: ["Publique nos stories", "Envie para clientes antigos"] } };
+  }
+  return { response: { name: "Saia Midi Plissada", description: "Saia leve e elegante para o dia a dia.", category: "Saias", price_reais: 89.9, variants: ["P", "M"], features: [] } };
+});
 
 export function startServer(port = 0) {
-  const env = createEnv();
+  const env = createEnv({ ai: demoAI });
   const server = createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);

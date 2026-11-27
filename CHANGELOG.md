@@ -2,6 +2,21 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.0.0-beta] — 2026-11-27 — Inteligência artificial com Workers AI
+
+### Adicionado
+- **Cadastro por mensagem**: o lojista descreve o produto como falaria no WhatsApp e a IA preenche nome, descrição, categoria, preço (só se informado) e opções.
+- **Cadastro por foto**: a IA analisa a foto e sugere nome, descrição e categoria; a foto também entra nas fotos do produto. O preço nunca é deduzido da imagem.
+- **Melhorar título e descrição** de produtos existentes.
+- **Assistente de divulgação**: textos para WhatsApp e Instagram e ideias, usando apenas produtos e preços reais da loja.
+- Todas as sugestões preenchem o formulário com destaque e aviso para revisão; nada é salvo automaticamente.
+- **Limite diário por loja** (`AI_DAILY_LIMIT`, padrão 30) e consumo de IA na administração (hoje e 30 dias).
+- Binding `AI` no `wrangler.toml`; migração 0014; Política de Privacidade atualizada; pergunta frequente sobre IA na landing.
+- 9 testes de API novos (107 no total, com modelo simulado) e 1 fluxo E2E novo (28 verificações).
+
+### Removido
+- Nada mais é simulado como IA na interface: as demonstrações antigas já haviam sido removidas.
+
 ## [0.9.0] — 2026-11-27 — Ordem das categorias e catálogo em PDF
 
 ### Adicionado

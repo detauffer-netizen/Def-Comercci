@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 98 testes de API/integração + 27 verificações E2E em navegador
+- ✅ 107 testes de API/integração + 28 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -41,14 +41,17 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ⛔ Aviso por e-mail ou push com o painel fechado (depende de provedor de e-mail / push)
 - ✅ Relatórios por período (7/30/90 dias): vendas por dia em gráfico com dica (mouse, toque e teclado) e tabela, comparação com o período anterior, mais vendidos
 
-## Fase 4 — Inteligência artificial ⛔
+## Fase 4 — Inteligência artificial 🟡 (Cloudflare Workers AI)
 
-Depende da escolha do provedor e de chave de API. Sugestão: Workers AI (já na conta
-Cloudflare, sem chave extra) para texto e visão, ou a API da Anthropic.
-- ⬜ Cadastro por mensagem e por foto (com confirmação obrigatória do lojista)
-- ⬜ Títulos, descrições e categorias sugeridas
-- ⬜ Remoção de fundo e melhoria de fotos
-- ⬜ Controle de consumo por empresa e limite por plano
+- ✅ Cadastro de produto por mensagem natural (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, saída em JSON schema)
+- ✅ Cadastro de produto a partir de foto (`@cf/meta/llama-4-scout-17b-16e-instruct`, visão); preço nunca é deduzido da foto
+- ✅ Títulos e descrições comerciais, sugestão de categoria e de opções (tamanhos, cores)
+- ✅ Assistente de divulgação: mensagem para WhatsApp, legenda para Instagram e ideias, usando só produtos e preços reais da loja
+- ✅ Tudo é sugestão: preenche o formulário, destaca os campos e exige revisão; nada é salvo automaticamente
+- ✅ Limite diário de uso por loja (`AI_DAILY_LIMIT`, padrão 30) e consumo visível na administração
+- ⬜ Limites por plano de assinatura (depende da Fase 7)
+- ⛔ Remoção de fundo e melhoria de fotos: não há modelo para isso no Workers AI; exigiria Cloudflare Images (pago) ou outro provedor
+- ⬜ Validar a qualidade das respostas com o modelo real após a publicação (os testes usam um modelo simulado)
 
 ## Fase 5 — WhatsApp e automações 🟡
 
@@ -103,7 +106,7 @@ Preços e provedor de pagamento dependem do proprietário.
 2. **Publicação na Cloudflare:** um token de API (Workers + D1 + R2, somente esta conta) como segredo `CLOUDFLARE_API_TOKEN` do GitHub, ou publicar localmente com `npm run deploy`.
 3. ~~Bucket R2~~ — criado em 27/11/2026.
 4. **Provedor de e-mail** para recuperação de senha e notificações.
-5. **Provedor de IA** (Workers AI ou Anthropic) e orçamento de uso.
+5. ~~Provedor de IA~~ — Workers AI escolhido; ajustar `AI_DAILY_LIMIT` conforme o orçamento.
 6. **WhatsApp Business Cloud API** (conta Meta verificada) para automações.
 7. **Provedor de pagamentos e preços dos planos.**
 8. **Dados jurídicos:** razão social/CNPJ, e-mail do encarregado (DPO) e revisão das páginas de Privacidade e Termos por um advogado.

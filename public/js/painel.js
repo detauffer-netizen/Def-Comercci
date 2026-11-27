@@ -543,6 +543,7 @@ function openProduct(product) {
   $("opt2").value = "";
   setVariants(product ? product.variants : []);
   renderImages();
+  resetAiBox();
   $("product-dialog").showModal();
   f.name.focus();
 }
@@ -593,6 +594,133 @@ async function uploadImages(productId, files) {
     }
   }
   return failed;
+}
+
+// ---------- IA (Workers AI) ----------
+
+let aiAvailable = null;
+async function refreshAiUsage() {
+  try {
+    const u = await api("/api/ai/usage");
+    aiAvailable = u.available;
+    $("ai-usage").textContent = `${u.used} de ${u.limit} usos hoje`;
+  } catch {
+    aiAvailable = false;
+  }
+  $("ai-box").hidden = !aiAvailable;
+  $("ai-improve").hidden = !aiAvailable;
+  if (can("owner")) $("ai-campaign-card").hidden = !aiAvailable;
+}
+
+function resetAiBox() {
+  $("ai-text").value = "";
+  aiNote("");
+  for (const el of document.querySelectorAll("#product-form .ai-filled")) el.classList.remove("ai-filled");
+  if (aiAvailable === null) refreshAiUsage();
+  else { $("ai-box").hidden = !aiAvailable; $("ai-improve").hidden = !aiAvailable; }
+}
+
+function aiNote(text, error = false) {
+  const note = $("ai-note");
+  note.textContent = text;
+  note.classList.toggle("error", error);
+  note.hidden = !text;
+}
+
+// Preenche o formulário com a sugestão; nada é salvo até o lojista clicar em Salvar.
+function applySuggestion(s) {
+  const f = $("product-form").elements;
+  const fill = (input, value) => {
+    if (!value) return;
+    input.value = value;
+    input.classList.add("ai-filled");
+  };
+  fill(f.name, s.name);
+  fill(f.description, s.description);
+  fill(f.category, s.category);
+  if (s.price_cents) fill(f.price, centsToInput(s.price_cents));
+  if (s.variants?.length && !document.querySelector("#variant-rows .variant-row")) {
+    setVariants(s.variants.map((name) => ({ name, stock: 0 })));
+    for (const input of document.querySelectorAll("#variant-rows [data-k=stock]")) input.classList.add("ai-filled");
+  }
+  const checks = ["nome", "descrição", s.price_cents ? "preço" : null, "estoque", s.variants?.length ? "opções" : null].filter(Boolean);
+  const list = checks.length > 1 ? `${checks.slice(0, -1).join(", ")} e ${checks.at(-1)}` : checks[0];
+  aiNote(`Sugestão da IA aplicada. Confira ${list} antes de salvar.${s.price_cents ? "" : " Informe o preço."}`);
+}
+
+async function aiCall(button, task) {
+  button.disabled = true;
+  aiNote("A IA está preparando a sugestão...");
+  try {
+    const result = await task();
+    $("ai-usage").textContent = `${result.usage.used} de ${result.usage.limit} usos hoje`;
+    return result;
+  } catch (error) {
+    if (error.status === 401) return fail(error);
+    aiNote(error.message, true);
+    return null;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function aiFromText(event) {
+  const text = $("ai-text").value.trim();
+  if (text.length < 3) return aiNote("Descreva o produto em poucas palavras, por exemplo: bolo de pote de ninho, 12 reais.", true);
+  const r = await aiCall(event.currentTarget, () => api("/api/ai/product-from-text", { method: "POST", body: { text } }));
+  if (r) applySuggestion(r.suggestion);
+}
+
+async function aiFromPhoto(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  const button = event.target.closest("label");
+  const r = await aiCall(button, async () => {
+    const blob = await compressImage(file, { max: 1024 });
+    const hint = $("ai-text").value.trim().slice(0, 300);
+    return api(`/api/ai/product-from-photo${hint ? `?hint=${encodeURIComponent(hint)}` : ""}`, { method: "POST", blob });
+  });
+  if (!r) return;
+  applySuggestion(r.suggestion);
+  // A foto analisada também entra nas fotos do produto.
+  const room = 8 - (state.editing?.images.length || 0) - state.pendingFiles.length;
+  if (room > 0) {
+    state.pendingFiles.push({ file, preview: URL.createObjectURL(file) });
+    renderImages();
+  }
+}
+
+async function aiImprove(event) {
+  const f = $("product-form").elements;
+  if (!f.name.value.trim()) return aiNote("Preencha o nome do produto primeiro.", true);
+  const r = await aiCall(event.currentTarget, () => api("/api/ai/improve-description", {
+    method: "POST", body: { name: f.name.value, description: f.description.value, category: f.category.value },
+  }));
+  if (!r) return;
+  applySuggestion({ name: r.suggestion.name, description: r.suggestion.description });
+}
+
+async function aiCampaign(event) {
+  const goal = $("campaign-goal").value.trim();
+  if (!goal) return toast("Conte o que você quer divulgar.", { error: true });
+  await busy(event.currentTarget, async () => {
+    const { suggestion: s } = await api("/api/ai/campaign", { method: "POST", body: { goal } });
+    const copy = (text) => async () => {
+      try { await navigator.clipboard.writeText(text); toast("Texto copiado."); } catch { toast("Não foi possível copiar.", { error: true }); }
+    };
+    const block = (title, text, extra) => h("div", { class: "campaign-block" },
+      h("strong", { text: title }),
+      h("textarea", { readonly: true, "aria-label": title }, text),
+      h("div", { class: "row-actions" }, h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: copy(text) }, icon("copy", "icon icon-sm"), "Copiar"), extra || null));
+    $("campaign-out").replaceChildren(
+      h("p", { class: "ai-note", text: "Gerado por IA. Revise preços e informações antes de publicar." }),
+      block("Mensagem para WhatsApp", s.whatsapp_message,
+        h("a", { class: "btn btn-ghost btn-sm", href: `https://wa.me/?text=${encodeURIComponent(s.whatsapp_message)}`, target: "_blank", rel: "noopener" }, icon("chat", "icon icon-sm"), "Enviar")),
+      block("Legenda para Instagram", s.instagram_caption),
+      s.ideas.length ? h("div", { class: "campaign-block" }, h("strong", { text: "Ideias de divulgação" }), h("ul", {}, ...s.ideas.map((i) => h("li", { text: i })))) : null);
+    refreshAiUsage();
+  });
 }
 
 // ---------- Variações ----------
@@ -860,7 +988,7 @@ async function loadStore() {
     preview.style.backgroundImage = s[`${kind}_url`] ? `url("${s[`${kind}_url`]}")` : "";
     document.querySelector(`[data-remove-asset=${kind}]`).hidden = !s[`${kind}_url`];
   }
-  await Promise.all([loadTeam(), loadCoupons()]);
+  await Promise.all([loadTeam(), loadCoupons(), refreshAiUsage()]);
 }
 
 // ---------- Cupons ----------
@@ -1233,6 +1361,10 @@ $("add-variant").addEventListener("click", () => {
 });
 $("team-form").addEventListener("submit", addMember);
 $("coupon-form").addEventListener("submit", createCoupon);
+$("ai-from-text").addEventListener("click", aiFromText);
+$("ai-photo").addEventListener("change", aiFromPhoto);
+$("ai-improve").addEventListener("click", aiImprove);
+$("campaign-go").addEventListener("click", aiCampaign);
 $("delivery-on").addEventListener("change", (e) => { $("delivery-fields").hidden = !e.target.checked; });
 
 // ---------- Aplicativo instalável e conexão ----------

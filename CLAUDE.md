@@ -44,7 +44,7 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.9.0: variações,
+Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 1.0.0-beta: IA com Workers AI, variações,
 equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
 avisos de pedidos, nova landing, cupons, PWA, monitoramento de erros, entrega e
 retirada, ordem da vitrine, impressão de pedidos, verificação em duas etapas,
@@ -60,5 +60,6 @@ próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
   valida os bytes iniciais (JPEG/PNG/WebP), limita a 2 MB e grava em `stores/<store_id>/...`.
 - Cupons: o desconto é calculado em `couponDiscount` (`src/routes/public.js`) e o uso é consumido com `UPDATE ... WHERE uses < max_uses`; `orders.total_cents` é sempre o valor final: subtotal − desconto + taxa de entrega (`fulfillmentFor`).
 - PWA: `public/sw.js` usa rede primeiro e só guarda o painel e seus arquivos; ao mudar a lista de arquivos, troque o nome do cache (`def-painel-vN`).
+- IA (`src/lib/ai.js`, `src/routes/ai.js`): toda resposta do modelo passa por `cleanProductSuggestion`/limites de tamanho e é só sugestão; nunca grave produto ou preço direto da IA. Cada chamada consome `consumeQuota` antes de chamar o modelo. Testes usam `fakeAI` (modelo simulado).
 - `test/helpers/env.js` implementa o subconjunto da API do D1 usado pelo código. Se
   passar a usar outro método do D1, implemente-o lá também.

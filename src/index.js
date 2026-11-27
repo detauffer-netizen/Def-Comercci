@@ -13,6 +13,7 @@ import * as privacy from "./routes/privacy.js";
 import * as reports from "./routes/reports.js";
 import * as coupons from "./routes/coupons.js";
 import * as twofactor from "./routes/twofactor.js";
+import * as ai from "./routes/ai.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
 
@@ -45,6 +46,11 @@ const ROUTES = [
   ["POST", "/api/team", team.addMember, "owner"],
   ["PATCH", "/api/team/:id", team.updateMember, "owner"],
   ["DELETE", "/api/team/:id", team.removeMember, "owner"],
+  ["GET", "/api/ai/usage", ai.aiUsage, "products"],
+  ["POST", "/api/ai/product-from-text", ai.productFromText, "products"],
+  ["POST", "/api/ai/product-from-photo", ai.productFromPhoto, "products"],
+  ["POST", "/api/ai/improve-description", ai.improveDescription, "products"],
+  ["POST", "/api/ai/campaign", ai.campaign, "products"],
   ["GET", "/api/categories/order", panel.getCategoryOrder, "products"],
   ["PUT", "/api/categories/order", panel.setCategoryOrder, "products"],
   ["GET", "/api/products", panel.listProducts, "products"],
