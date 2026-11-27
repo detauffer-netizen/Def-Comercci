@@ -274,7 +274,7 @@ try {
     await panel.locator("#team-card summary").click();
     const form = panel.locator("#team-form");
     await form.getByLabel("Nome").fill("Bruno Vendas");
-    await form.getByLabel("E-mail").fill("bruno@exemplo.com.br");
+    await form.getByLabel("E-mail").fill("bruno.vendas.atendimento.loja@exemplo.com.br");
     await form.getByLabel("Senha provisória").fill("provisoria-123");
     await form.getByLabel("Produtos e estoque").uncheck();
     await form.getByRole("button", { name: "Adicionar à equipe" }).click();
@@ -287,7 +287,7 @@ try {
     watch(staff, "funcionário");
     await staff.goto(url + "/painel");
     const login = staff.locator("#login");
-    await login.getByLabel("E-mail").fill("bruno@exemplo.com.br");
+    await login.getByLabel("E-mail").fill("bruno.vendas.atendimento.loja@exemplo.com.br");
     await login.getByLabel("Senha").fill("provisoria-123");
     await login.getByRole("button", { name: "Entrar no painel" }).click();
     const pw = staff.locator("#password-dialog");
