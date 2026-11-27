@@ -199,7 +199,10 @@ function route() {
   let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
   if (!can(VIEW_PERMISSION[view])) view = "inicio";
   // O filtro aberto por uma recomendação vale só até sair de Produtos.
-  if (view !== "produtos") state.productIds = null;
+  if (view !== "produtos") {
+    state.productIds = null;
+    if (state.bulk) toggleBulk(false);
+  }
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
   for (const a of document.querySelectorAll(".nav a")) {
     if (a.dataset.view === view) a.setAttribute("aria-current", "page");
@@ -540,7 +543,16 @@ function renderProducts() {
   $("product-list").replaceChildren(...(banner ? [banner] : []), ...list.map((p) => {
     const cover = p.images[0]?.url;
     const stockBadge = p.stock === 0 ? ["badge-danger", "Esgotado"] : p.stock <= minStock(p) ? ["badge-warn", `${p.stock} em estoque`] : ["badge-ok", `${p.stock} em estoque`];
-    return h("button", { class: `product-item ${p.active ? "" : "inactive"}`, type: "button", onclick: () => openProduct(p) },
+    const selected = state.bulk?.has(p.id);
+    const shell = state.bulk
+      ? (...children) => h("label", { class: `product-item selectable ${p.active ? "" : "inactive"} ${selected ? "selected" : ""}` },
+        h("input", { type: "checkbox", checked: selected, "aria-label": `Selecionar ${p.name}`, onchange: (e) => {
+          if (e.target.checked) state.bulk.add(p.id); else state.bulk.delete(p.id);
+          e.target.closest(".product-item").classList.toggle("selected", e.target.checked);
+          updateBulkBar();
+        } }), ...children)
+      : (...children) => h("button", { class: `product-item ${p.active ? "" : "inactive"}`, type: "button", onclick: () => openProduct(p) }, ...children);
+    return shell(
       h("span", { class: "thumb", style: cover ? { backgroundImage: `url("${cover}")` } : {} }, cover ? null : icon("image")),
       h("span", { class: "info" },
         h("strong", { text: p.name }),
@@ -608,6 +620,7 @@ function openProduct(product) {
   $("product-error").hidden = true;
   $("product-dialog-title").textContent = product ? "Editar produto" : "Novo produto";
   $("delete-product").hidden = !product;
+  $("duplicate-product").hidden = !product;
   const f = form.elements;
   if (product) {
     f.name.value = product.name;
@@ -731,11 +744,17 @@ function applySuggestion(s) {
   fill(f.description, s.description);
   fill(f.category, s.category);
   if (s.price_cents) fill(f.price, centsToInput(s.price_cents));
+  if (s.stock && !document.querySelector("#variant-rows .variant-row")) fill(f.stock, String(s.stock));
+  if (s.cost_cents) {
+    fill(f.cost, centsToInput(s.cost_cents));
+    $("product-advanced").open = true;
+    updateMargin();
+  }
   if (s.variants?.length && !document.querySelector("#variant-rows .variant-row")) {
     setVariants(s.variants.map((name) => ({ name, stock: 0 })));
     for (const input of document.querySelectorAll("#variant-rows [data-k=stock]")) input.classList.add("ai-filled");
   }
-  const checks = ["nome", "descrição", s.price_cents ? "preço" : null, "estoque", s.variants?.length ? "opções" : null].filter(Boolean);
+  const checks = ["nome", "descrição", s.price_cents ? "preço" : null, s.cost_cents ? "custo" : null, "estoque", s.variants?.length ? "opções" : null].filter(Boolean);
   const list = checks.length > 1 ? `${checks.slice(0, -1).join(", ")} e ${checks.at(-1)}` : checks[0];
   aiNote(`Sugestão da IA aplicada. Confira ${list} antes de salvar.${s.price_cents ? "" : " Informe o preço."}`);
 }
@@ -1659,6 +1678,225 @@ async function saveSupplier(event) {
   });
 }
 
+// ---------- Cadastro: planilha, edição em massa, duplicar e câmera ----------
+
+const CSV_COLUMNS = [
+  ["name", "Nome"], ["sku", "SKU"], ["barcode", "Código de barras"], ["category", "Categoria"],
+  ["price", "Preço"], ["promo", "Preço promocional"], ["cost", "Custo"], ["stock", "Estoque"],
+  ["min_stock", "Alerta de reposição"], ["supplier", "Fornecedor"], ["active", "Visível na vitrine"], ["description", "Descrição"],
+];
+const fold = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+function exportProducts() {
+  if (!state.products.length) return toast("Nenhum produto para exportar.");
+  const money2 = (c) => (c === null || c === undefined ? "" : (c / 100).toFixed(2).replace(".", ","));
+  downloadCsv(`produtos-${new Date().toISOString().slice(0, 10)}.csv`, CSV_COLUMNS.map(([, label]) => label),
+    state.products.map((p) => [p.name, p.sku, p.barcode, p.category, money2(p.price_cents), money2(p.promo_price_cents), money2(p.cost_cents),
+      p.variants.length ? "" : p.stock, p.min_stock ?? "", p.supplier, p.active ? "sim" : "não", p.description]));
+}
+
+// CSV com ";" ou "," e aspas (padrão do Excel em português).
+function parseCsv(text) {
+  text = text.replace(/^﻿/, "");
+  const firstLine = text.split(/\r?\n/, 1)[0];
+  const sep = (firstLine.match(/;/g) || []).length >= (firstLine.match(/,/g) || []).length ? ";" : ",";
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === sep) { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  // Desfaz a proteção contra fórmulas aplicada na exportação.
+  return rows.filter((r) => r.some((c) => c.trim())).map((r) => r.map((c) => (/^'[=+\-@\t\r]/.test(c) ? c.slice(1) : c).trim()));
+}
+
+let importRows = null;
+async function readImportFile(file) {
+  const preview = $("import-preview");
+  $("import-confirm").disabled = true;
+  importRows = null;
+  const table = parseCsv(await file.text());
+  if (table.length < 2) return preview.replaceChildren(h("p", { class: "form-error", text: "A planilha precisa de um cabeçalho e pelo menos um produto." }));
+  const header = table[0].map(fold);
+  const index = Object.fromEntries(CSV_COLUMNS.map(([key, label]) => [key, header.indexOf(fold(label))]));
+  if (index.name < 0 || index.price < 0) return preview.replaceChildren(h("p", { class: "form-error", text: "Não encontrei as colunas Nome e Preço. Use o modelo." }));
+  const errors = [];
+  importRows = table.slice(1).map((cells, i) => {
+    const get = (k) => (index[k] >= 0 ? cells[index[k]] ?? "" : "");
+    const cents = (k) => {
+      const raw = get(k);
+      if (!raw) return null;
+      const value = parseMoney(raw);
+      if (Number.isNaN(value)) errors.push({ row: i + 2, message: `valor inválido em ${CSV_COLUMNS.find(([c]) => c === k)[1]}: ${raw}` });
+      return Number.isNaN(value) ? null : value;
+    };
+    const int = (k) => (get(k) === "" ? null : Number(get(k)));
+    const vis = fold(get("active"));
+    return {
+      name: get("name"), sku: get("sku"), barcode: get("barcode"), category: get("category"),
+      price_cents: cents("price"), promo_price_cents: cents("promo"), cost_cents: cents("cost"),
+      stock: int("stock"), min_stock: int("min_stock"), supplier: get("supplier"), description: get("description"),
+      active: vis ? (["nao", "n", "0", "false", "oculto"].includes(vis) ? 0 : 1) : 1,
+    };
+  });
+  const showErrors = (list) => preview.replaceChildren(h("p", { class: "form-error", text: `Corrija ${list.length} linha(s) e envie de novo:` }),
+    h("ul", { class: "import-errors" }, ...list.slice(0, 20).map((e) => h("li", { text: `Linha ${e.row}: ${e.message}` }))));
+  if (errors.length) { importRows = null; return showErrors(errors); }
+  try {
+    const r = await api("/api/products/import", { method: "POST", body: { rows: importRows, dry_run: true } });
+    if (!r.valid) {
+      importRows = null;
+      return showErrors(r.errors);
+    }
+    preview.replaceChildren(h("p", { class: "margin-info" }, "Pronto para importar: ", h("strong", { text: `${r.created} novo(s)` }), " e ", h("strong", { text: `${r.updated} atualizado(s)` }), "."));
+    $("import-confirm").disabled = false;
+  } catch (error) {
+    importRows = null;
+    if (error.data?.errors?.length) return showErrors(error.data.errors);
+    preview.replaceChildren(h("p", { class: "form-error", text: error.message }));
+  }
+}
+
+async function confirmImport() {
+  if (!importRows) return;
+  await busy($("import-confirm"), async () => {
+    try {
+      const r = await api("/api/products/import", { method: "POST", body: { rows: importRows } });
+      $("import-dialog").close();
+      toast(`Planilha importada: ${r.created} novo(s), ${r.updated} atualizado(s).`);
+      await loadProducts();
+    } catch (error) {
+      $("import-preview").replaceChildren(h("p", { class: "form-error", text: error.message }));
+    }
+  });
+}
+
+function openImport() {
+  importRows = null;
+  $("import-file").value = "";
+  $("import-preview").replaceChildren();
+  $("import-confirm").disabled = true;
+  $("import-dialog").showModal();
+}
+
+// Edição em massa
+function toggleBulk(on = !state.bulk) {
+  state.bulk = on ? new Set() : null;
+  $("bulk-toggle").setAttribute("aria-pressed", String(!!on));
+  $("bulk-toggle").lastChild.textContent = on ? "Concluir seleção" : "Editar vários";
+  $("bulk-bar").hidden = !on;
+  updateBulkBar();
+  renderProducts();
+}
+
+function updateBulkBar() {
+  if (!state.bulk) return;
+  $("bulk-count").textContent = `${state.bulk.size} selecionado(s)`;
+  const action = $("bulk-action").value;
+  const labels = { category: "Nova categoria", price_percent: "Percentual (ex.: 10 ou -5)", supplier: "Fornecedor" };
+  $("bulk-value-field").hidden = !labels[action];
+  $("bulk-value-label").textContent = labels[action] || "";
+  $("bulk-value").inputMode = action === "price_percent" ? "decimal" : "text";
+}
+
+async function applyBulk() {
+  if (!state.bulk?.size) return toast("Selecione pelo menos um produto.", { error: true });
+  const action = $("bulk-action").value;
+  const raw = $("bulk-value").value.trim();
+  const body = { ids: [...state.bulk] };
+  if (action === "hide" || action === "show") Object.assign(body, { action: "visibility", value: action === "show" });
+  else if (action === "price_percent") {
+    const pct = Number(raw.replace(",", "."));
+    if (!raw || !Number.isFinite(pct)) return toast("Informe o percentual, por exemplo 10 ou -5.", { error: true });
+    if (!confirm(`Reajustar o preço de ${state.bulk.size} produto(s) em ${pct > 0 ? "+" : ""}${pct}%? As variações com preço próprio também mudam.`)) return;
+    Object.assign(body, { action, value: pct });
+  } else Object.assign(body, { action, value: raw });
+  await busy($("bulk-apply"), async () => {
+    const r = await api("/api/products/bulk", { method: "POST", body });
+    toast(`${r.updated} produto(s) atualizado(s).`);
+    $("bulk-value").value = "";
+    await loadProducts();
+  });
+}
+
+function duplicateProduct() {
+  const p = state.editing;
+  if (!p) return;
+  const copy = { ...p, id: undefined, name: `${p.name} (cópia)`, sku: "", barcode: "", images: [],
+    variants: p.variants.map((x) => ({ ...x, id: undefined, sku: "", stock: 0 })), stock: 0 };
+  $("product-dialog").close();
+  openProduct(null);
+  const f = $("product-form").elements;
+  f.name.value = copy.name;
+  f.description.value = copy.description || "";
+  f.price.value = centsToInput(copy.price_cents);
+  f.promo.value = centsToInput(copy.promo_price_cents);
+  f.stock.value = "0";
+  f.category.value = copy.category || "";
+  f.cost.value = centsToInput(copy.cost_cents);
+  f.min_stock.value = copy.min_stock ?? "";
+  f.supplier.value = copy.supplier || "";
+  f.location.value = copy.location || "";
+  f.featured.checked = copy.featured;
+  setVariants(copy.variants);
+  $("product-advanced").open = copy.cost_cents !== null || !!copy.supplier;
+  updateMargin();
+  $("product-dialog-title").textContent = "Novo produto (cópia)";
+  toast("Cópia pronta: ajuste nome, fotos e estoque e salve.");
+}
+
+// Leitura de código de barras pela câmera (navegadores com BarcodeDetector).
+const scanner = { stream: null, timer: null };
+const canScan = () => "BarcodeDetector" in window && !!navigator.mediaDevices?.getUserMedia;
+
+async function startScan(onCode) {
+  const status = $("scan-status");
+  status.textContent = "Abrindo a câmera...";
+  $("scan-dialog").showModal();
+  try {
+    const detector = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"] });
+    scanner.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const video = $("scan-video");
+    video.srcObject = scanner.stream;
+    await video.play();
+    status.textContent = "Centralize o código na imagem.";
+    const tick = async () => {
+      if (!scanner.stream) return;
+      const codes = await detector.detect(video).catch(() => []);
+      if (codes[0]?.rawValue) {
+        stopScan();
+        $("scan-dialog").close();
+        if (navigator.vibrate) navigator.vibrate(80);
+        return onCode(codes[0].rawValue);
+      }
+      scanner.timer = setTimeout(tick, 250);
+    };
+    tick();
+  } catch {
+    stopScan();
+    status.textContent = "Não foi possível usar a câmera. Verifique a permissão do navegador ou digite o código.";
+  }
+}
+
+function stopScan() {
+  clearTimeout(scanner.timer);
+  scanner.stream?.getTracks().forEach((t) => t.stop());
+  scanner.stream = null;
+  $("scan-video").srcObject = null;
+}
+
 async function setOrderStatus(order, status, button) {
   const confirmText = {
     cancelled: order.status === "confirmed" ? "Cancelar o pedido e devolver os itens ao estoque?" : "Cancelar este pedido?",
@@ -2107,6 +2345,34 @@ $("pay-methods").addEventListener("click", (e) => {
   if (b) setPayMethod(b.dataset.method);
 });
 $("sale-form").addEventListener("submit", finishSale);
+$("export-products").addEventListener("click", exportProducts);
+$("open-import").addEventListener("click", openImport);
+$("import-file").addEventListener("change", (e) => { if (e.target.files[0]) readImportFile(e.target.files[0]).catch(fail); });
+$("import-confirm").addEventListener("click", confirmImport);
+$("import-template").addEventListener("click", () => downloadCsv("modelo-produtos.csv", CSV_COLUMNS.map(([, label]) => label),
+  [["Garrafa térmica 500 ml", "GAR-500", "7891234567895", "Utilidades", "49,90", "", "25,00", "20", "5", "Distribuidora Sul", "sim", "Mantém a bebida gelada por 12 horas."]]));
+$("bulk-toggle").addEventListener("click", () => toggleBulk());
+$("bulk-action").addEventListener("change", updateBulkBar);
+$("bulk-apply").addEventListener("click", () => applyBulk().catch(fail));
+$("bulk-all").addEventListener("click", () => {
+  for (const box of document.querySelectorAll("#product-list .product-item.selectable input")) {
+    box.checked = true;
+    box.dispatchEvent(new Event("change"));
+  }
+});
+$("duplicate-product").addEventListener("click", duplicateProduct);
+$("scan-dialog").addEventListener("close", stopScan);
+for (const b of document.querySelectorAll(".scan-btn")) {
+  b.hidden = !canScan();
+  b.addEventListener("click", () => startScan((code) => {
+    if (b.dataset.scan === "barcode") {
+      $("product-form").elements.barcode.value = code;
+    } else {
+      $("sale-search").value = code;
+      saleSearch(true);
+    }
+  }));
+}
 $("open-stock").addEventListener("click", () => openStock().catch(fail));
 $("open-restock").addEventListener("click", () => openRestock().catch(fail));
 $("stock-kinds").addEventListener("click", (e) => {

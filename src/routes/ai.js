@@ -49,13 +49,16 @@ export async function productFromPhoto(request, env, session) {
     {
       role: "user",
       content: [
-        { type: "text", text: `Descreva este produto para cadastro na loja. Defina price_reais como null.${hint ? ` Informação do lojista: ${hint}` : ""}` },
+        { type: "text", text: `Descreva este produto para cadastro na loja. Defina price_reais, cost_reais e quantity como null.${hint ? ` Informação do lojista: ${hint}` : ""}` },
         { type: "image_url", image_url: { url: `data:${upload.contentType};base64,${toBase64(upload.bytes)}` } },
       ],
     },
   ], PRODUCT_SCHEMA);
   const suggestion = cleanProductSuggestion(raw);
+  // Pela foto não se deduz preço, custo nem quantidade.
   suggestion.price_cents = null;
+  suggestion.cost_cents = null;
+  suggestion.stock = null;
   await track(env, session, "product-from-photo");
   return json({ suggestion, usage: quota });
 }

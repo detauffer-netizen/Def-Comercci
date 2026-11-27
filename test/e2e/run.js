@@ -6,6 +6,7 @@
 
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { startServer } from "./server.js";
 import { hashPassword } from "../../src/lib/crypto.js";
@@ -812,6 +813,51 @@ try {
     await link.dispatchEvent("click");
     assert.match(await link.getAttribute("href"), /^https:\/\/wa\.me\/5554988776655\?text=.*Caneca%20Balc/);
     await panel.locator("#restock-dialog [data-close]").click();
+  });
+
+  await check("cadastro: exportar e importar planilha, editar vários e duplicar produto", async () => {
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator(".product-item").first().waitFor();
+    // Exportar: o CSV traz os produtos com cabeçalho em português.
+    const [download] = await Promise.all([panel.waitForEvent("download"), panel.getByRole("button", { name: "Exportar planilha" }).click()]);
+    const exported = await readFile(await download.path(), "utf8");
+    assert.match(exported, /^\uFEFF"Nome";"SKU";"Código de barras"/);
+    assert.match(exported, /Caneca Balcão/);
+    // Importar: um produto novo e a atualização de um existente pelo SKU.
+    await panel.getByRole("button", { name: "Importar planilha" }).click();
+    const csv = "Nome;SKU;Categoria;Preço;Custo;Estoque\nGarrafa térmica 500 ml;GAR-500;Utilidades;49,90;25,00;20\nVestido Floral;VES-01;Vestidos;199,90;;\n";
+    await panel.locator("#import-file").setInputFiles({ name: "produtos.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+    await panel.locator("#import-preview", { hasText: "1 novo(s)" }).filter({ hasText: "1 atualizado(s)" }).waitFor();
+    await panel.locator("#import-dialog").getByRole("button", { name: "Importar" }).click();
+    await panel.locator(".product-item", { hasText: "Garrafa térmica 500 ml" }).waitFor();
+    let products = await panel.request.get(url + "/api/products").then((r) => r.json());
+    assert.equal(products.find((p) => p.sku === "GAR-500").cost_cents, 2500);
+    assert.equal(products.find((p) => p.sku === "VES-01").price_cents, 19990);
+    // Planilha com erro mostra a linha e não importa nada.
+    await panel.getByRole("button", { name: "Importar planilha" }).click();
+    await panel.locator("#import-file").setInputFiles({ name: "ruim.csv", mimeType: "text/csv", buffer: Buffer.from("Nome;Preço\nSem preço;\n") });
+    await panel.locator("#import-preview", { hasText: "Linha 2" }).waitFor();
+    assert.equal(await panel.locator("#import-confirm").isDisabled(), true);
+    await panel.locator("#import-dialog [data-close]").first().click();
+    // Editar vários: muda a categoria de dois produtos.
+    await panel.getByRole("button", { name: "Editar vários" }).click();
+    await panel.getByLabel("Selecionar Garrafa térmica 500 ml").check();
+    await panel.getByLabel("Selecionar Caneca Balcão").check();
+    await panel.locator("#bulk-count", { hasText: "2 selecionado(s)" }).waitFor();
+    await panel.locator("#bulk-value").fill("Cozinha");
+    await noHorizontalScroll(panel, "editar vários");
+    await panel.getByRole("button", { name: "Aplicar" }).click();
+    await panel.locator("#toast", { hasText: "2 produto(s) atualizado(s)" }).waitFor();
+    products = await panel.request.get(url + "/api/products").then((r) => r.json());
+    assert.deepEqual(products.filter((p) => p.category === "Cozinha").map((p) => p.name).sort(), ["Caneca Balcão", "Garrafa térmica 500 ml"]);
+    await panel.getByRole("button", { name: "Concluir seleção" }).click();
+    // Duplicar.
+    await panel.locator(".product-item", { hasText: "Garrafa térmica 500 ml" }).click();
+    await panel.locator("#product-dialog").getByRole("button", { name: "Duplicar" }).click();
+    const pf = panel.locator("#product-form");
+    assert.equal(await pf.getByLabel("Nome do produto").inputValue(), "Garrafa térmica 500 ml (cópia)");
+    await pf.getByRole("button", { name: "Salvar produto" }).click();
+    await panel.locator(".product-item", { hasText: "Garrafa térmica 500 ml (cópia)" }).waitFor();
   });
 
   await check("logout encerra a sessão", async () => {

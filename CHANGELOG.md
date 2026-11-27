@@ -2,6 +2,20 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.7.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 5: cadastro inteligente
+
+### Adicionado
+- **Exportar planilha** de produtos (CSV com ";" para Excel/Planilhas, cabeçalho em português) e **Importar planilha**: prévia antes de gravar ("X novos, Y atualizados"), atualização pelo SKU, estoque em branco mantém o atual, erros apontados por linha e nada gravado se houver erro. Modelo para baixar. Até 500 produtos por vez, respeitando o limite do plano.
+- **Editar vários**: seleção de produtos na lista para mudar categoria, definir fornecedor, ocultar/mostrar na vitrine ou **reajustar preços em %** (inclui variações com preço próprio e promoções).
+- **Duplicar produto**: abre um novo cadastro com os dados do produto (sem SKU, código de barras, fotos e estoque).
+- **Ler código de barras pela câmera** no PDV e no campo "Código de barras" (navegadores com leitor nativo, como o Chrome no Android). O site passa a permitir a câmera somente para si mesmo (`Permissions-Policy: camera=(self)`).
+- **IA entende custo e quantidade**: "Comprei 20 garrafas por R$ 25 cada. Quero vender por R$ 49,90." preenche preço, custo, estoque e mostra a margem para revisão. Pela foto, preço, custo e quantidade nunca são deduzidos.
+
+### Técnico
+- Rotas `POST /api/products/import` e `POST /api/products/bulk` (permissão de produtos).
+- `ApiError` no navegador passa a carregar o corpo da resposta (`error.data`).
+- 3 testes de API novos e 1 atualizado (154 no total) e 1 fluxo E2E novo (33 verificações).
+
 ## [1.6.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 4: estoque avançado
 
 ### Adicionado
