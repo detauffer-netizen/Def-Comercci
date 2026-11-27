@@ -2,6 +2,25 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.4.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 2: PDV (venda no balcão)
+
+### Adicionado
+- **Nova venda** (Vendas → "Nova venda" ou botão laranja de ação rápida no celular): busca por nome, SKU ou código de barras (o Enter de um leitor USB/Bluetooth adiciona o item direto), quantidades limitadas ao estoque, desconto, formas de pagamento **Pix, Dinheiro (com troco), Crédito, Débito, Misto e A prazo** (com entrada opcional), cliente e observações opcionais.
+- Vende também produtos ocultos da vitrine.
+- **Sem venda duplicada:** cada venda tem um identificador gerado no aparelho; reenviar (conexão caiu, toque duplo) devolve a mesma venda.
+- **Estoque pelos mesmos gatilhos dos pedidos:** a venda entra, é confirmada (baixa atômica, sem estoque negativo) e concluída na mesma transação. Vendas simultâneas do último item: só uma passa.
+- **Comprovante** na tela, para imprimir (80 mm) ou enviar pelo WhatsApp, com o aviso "não é documento fiscal".
+- **A prazo:** exige nome e telefone do cliente; o valor fica como "a receber" (aparece no pedido e na API do resumo).
+- Menu "Pedidos" passa a se chamar **Vendas**, com o filtro "No balcão" e o selo "Balcão" nos registros; vendas no balcão não disparam aviso de pedido novo.
+- Botão de ação rápida (celular): registrar venda ou cadastrar produto.
+
+### Corrigido
+- O texto "null" podia aparecer no card "Plano e assinatura" e no resultado da divulgação com IA.
+
+### Técnico
+- Migração 0018 (`orders.channel`, `payments_json`, `receivable_cents`, `created_by`); rota `POST /api/sales` (permissão de pedidos).
+- 6 testes de API novos (140 no total) e 1 fluxo E2E novo (30 verificações).
+
 ## [1.3.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 1: lucro e resumo inteligente
 
 ### Adicionado
