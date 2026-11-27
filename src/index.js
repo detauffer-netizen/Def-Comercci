@@ -2,42 +2,62 @@
 // segurança e páginas estáticas (servidas pelo binding ASSETS).
 
 import { HttpError, json } from "./lib/http.js";
-import { loadSession } from "./lib/session.js";
+import { loadAdminSession, loadSession, requireOwner, requirePermission } from "./lib/session.js";
 import { serveImage } from "./lib/images.js";
 import * as auth from "./routes/auth.js";
 import * as pub from "./routes/public.js";
 import * as panel from "./routes/panel.js";
+import * as team from "./routes/team.js";
+import * as admin from "./routes/admin.js";
 
-// [método, padrão, handler, exige sessão]
+// [método, padrão, handler, acesso]
+// acesso: "public" · "session" (qualquer membro da loja) · uma permissão
+// (products, orders, customers, reports; o proprietário tem todas) ·
+// "owner" · "admin" (super administrador, isolado das lojas)
 const ROUTES = [
-  ["POST", "/api/register", auth.register, false],
-  ["POST", "/api/login", auth.login, false],
-  ["GET", "/api/store/:slug", pub.storefront, false],
-  ["POST", "/api/order-request/:slug", pub.createOrderRequest, false],
-  ["POST", "/api/logout", auth.logout, true],
-  ["GET", "/api/me", panel.me, true],
-  ["PATCH", "/api/settings", panel.updateSettings, true],
-  ["POST", "/api/settings/:kind", panel.uploadStoreImage, true],
-  ["DELETE", "/api/settings/:kind", panel.deleteStoreImage, true],
-  ["GET", "/api/products", panel.listProducts, true],
-  ["POST", "/api/products", panel.createProduct, true],
-  ["PATCH", "/api/products/:id", panel.updateProduct, true],
-  ["DELETE", "/api/products/:id", panel.deleteProduct, true],
-  ["POST", "/api/products/:id/images", panel.uploadProductImage, true],
-  ["DELETE", "/api/products/:id/images/:imageId", panel.deleteProductImage, true],
-  ["GET", "/api/orders", panel.listOrders, true],
-  ["PATCH", "/api/orders/:id", panel.updateOrderStatus, true],
-  ["GET", "/api/customers", panel.listCustomers, true],
-  ["GET", "/api/metrics", panel.metrics, true],
-  ["GET", "/api/stock-movements", panel.stockMovements, true],
-  ["GET", "/api/audit-log", panel.auditLog, true],
-].map(([method, pattern, handler, needsSession]) => {
+  ["POST", "/api/register", auth.register, "public"],
+  ["POST", "/api/login", auth.login, "public"],
+  ["GET", "/api/store/:slug", pub.storefront, "public"],
+  ["POST", "/api/order-request/:slug", pub.createOrderRequest, "public"],
+  ["POST", "/api/logout", auth.logout, "session"],
+  ["GET", "/api/me", panel.me, "session"],
+  ["POST", "/api/account/password", team.changePassword, "session"],
+  ["PATCH", "/api/settings", panel.updateSettings, "owner"],
+  ["POST", "/api/settings/:kind", panel.uploadStoreImage, "owner"],
+  ["DELETE", "/api/settings/:kind", panel.deleteStoreImage, "owner"],
+  ["GET", "/api/team", team.listTeam, "owner"],
+  ["POST", "/api/team", team.addMember, "owner"],
+  ["PATCH", "/api/team/:id", team.updateMember, "owner"],
+  ["DELETE", "/api/team/:id", team.removeMember, "owner"],
+  ["GET", "/api/products", panel.listProducts, "products"],
+  ["POST", "/api/products", panel.createProduct, "products"],
+  ["PATCH", "/api/products/:id", panel.updateProduct, "products"],
+  ["DELETE", "/api/products/:id", panel.deleteProduct, "products"],
+  ["POST", "/api/products/:id/images", panel.uploadProductImage, "products"],
+  ["DELETE", "/api/products/:id/images/:imageId", panel.deleteProductImage, "products"],
+  ["GET", "/api/stock-movements", panel.stockMovements, "products"],
+  ["GET", "/api/orders", panel.listOrders, "orders"],
+  ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
+  ["GET", "/api/customers", panel.listCustomers, "customers"],
+  ["GET", "/api/metrics", panel.metrics, "reports"],
+  ["GET", "/api/audit-log", panel.auditLog, "owner"],
+  ["POST", "/api/admin/logout", auth.logout, "admin"],
+  ["GET", "/api/admin/me", admin.adminMe, "admin"],
+  ["POST", "/api/admin/password", team.changePassword, "admin"],
+  ["GET", "/api/admin/overview", admin.overview, "admin"],
+  ["GET", "/api/admin/stores", admin.listStores, "admin"],
+  ["PATCH", "/api/admin/stores/:id", admin.setStoreStatus, "admin"],
+  ["GET", "/api/admin/audit", admin.adminAudit, "admin"],
+].map(([method, pattern, handler, access]) => {
   const names = [];
   const regex = new RegExp(
     "^" + pattern.replace(/:([a-zA-Z]+)/g, (_, name) => (names.push(name), "([^/]+)")) + "$",
   );
-  return { method, regex, names, handler, needsSession };
+  return { method, regex, names, handler, access };
 });
+
+// Enquanto a senha provisória não for trocada, só estas rotas funcionam.
+const ALLOWED_BEFORE_PASSWORD_CHANGE = new Set([panel.me, auth.logout, team.changePassword]);
 
 export const SECURITY_HEADERS = {
   "Content-Security-Policy":
@@ -71,10 +91,21 @@ async function handleApi(request, env, url) {
     } catch {
       return json({ error: "Endereço inválido" }, 400);
     }
-    if (!route.needsSession) return route.handler(request, env, params);
+    if (route.access === "public") return route.handler(request, env, params);
+    if (route.access === "admin") {
+      const adminSession = await loadAdminSession(env.DB, request);
+      if (!adminSession) return json({ error: "Acesso restrito à administração da plataforma." }, 401);
+      // changePassword e logout esperam session.user
+      return route.handler(request, env, { ...adminSession, user: { id: adminSession.admin.id } }, params);
+    }
     const session = await loadSession(env.DB, request);
     if (!session) return json({ error: "Sua sessão expirou. Entre novamente." }, 401);
     if (session.store.status !== "active") return json({ error: "Esta loja está suspensa. Fale com o suporte." }, 403);
+    if (session.user.mustChangePassword && !ALLOWED_BEFORE_PASSWORD_CHANGE.has(route.handler)) {
+      return json({ error: "Defina uma nova senha para continuar." }, 403);
+    }
+    if (route.access === "owner") requireOwner(session);
+    else if (route.access !== "session") requirePermission(session, route.access);
     return route.handler(request, env, session, params);
   }
   const pathExists = ROUTES.some((r) => r.regex.test(url.pathname));
@@ -119,6 +150,7 @@ export default {
     }
     if (path === "/") return asset(env, request, "/index.html");
     if (path === "/painel" || path === "/painel/") return asset(env, request, "/painel.html");
+    if (path === "/admin" || path === "/admin/") return asset(env, request, "/admin.html");
     if (/^\/loja\/[a-z0-9-]{3,60}\/?$/.test(path)) return asset(env, request, "/vitrine.html");
     if (/^\/(css|js|icons)\/[a-z0-9._-]+$/.test(path) || path === "/robots.txt" || path === "/favicon.svg") {
       return asset(env, request, path);

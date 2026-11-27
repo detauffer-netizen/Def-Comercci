@@ -35,7 +35,8 @@ export async function loadSession(db, request) {
   const tokenHash = await sha256(token);
   const row = await db
     .prepare(
-      `SELECT s.token_hash, u.id AS user_id, u.email, m.role,
+      `SELECT s.token_hash, u.id AS user_id, u.email, u.name AS user_name, u.must_change_password,
+              m.role, m.permissions,
               st.id AS store_id, st.name, st.slug, st.whatsapp, st.accent,
               st.description, st.logo_key, st.banner_key, st.status
          FROM sessions s
@@ -51,7 +52,14 @@ export async function loadSession(db, request) {
   if (!row) return null;
   return {
     tokenHash,
-    user: { id: row.user_id, email: row.email, role: row.role },
+    user: {
+      id: row.user_id,
+      email: row.email,
+      name: row.user_name,
+      role: row.role,
+      permissions: row.role === "owner" ? [...PERMISSIONS] : parsePermissions(row.permissions),
+      mustChangePassword: !!row.must_change_password,
+    },
     store: {
       id: row.store_id,
       name: row.name,
@@ -70,6 +78,38 @@ export function requireOwner(session) {
   if (session.user.role !== "owner") {
     throw new HttpError(403, "Apenas o proprietário da loja pode fazer esta alteração");
   }
+}
+
+// Permissões que o proprietário pode conceder a cada funcionário.
+export const PERMISSIONS = ["products", "orders", "customers", "reports"];
+const PERMISSION_LABELS = { products: "produtos e estoque", orders: "pedidos", customers: "clientes", reports: "relatórios" };
+
+export function parsePermissions(text) {
+  return String(text || "").split(",").filter((p) => PERMISSIONS.includes(p));
+}
+
+export function requirePermission(session, permission) {
+  if (!session.user.permissions.includes(permission)) {
+    throw new HttpError(403, `Seu acesso não inclui ${PERMISSION_LABELS[permission]}. Fale com o proprietário da loja.`);
+  }
+}
+
+// Sessão do super administrador: exige registro em platform_admins e não
+// depende de loja. Um lojista nunca passa por aqui.
+export async function loadAdminSession(db, request) {
+  const token = readSessionToken(request);
+  if (!token) return null;
+  const tokenHash = await sha256(token);
+  const row = await db
+    .prepare(
+      `SELECT u.id, u.email FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         JOIN platform_admins a ON a.user_id = u.id
+        WHERE s.token_hash = ? AND s.expires_at > ?`,
+    )
+    .bind(tokenHash, Date.now())
+    .first();
+  return row ? { tokenHash, admin: { id: row.id, email: row.email } } : null;
 }
 
 // Janela fixa de 10 minutos por chave. A chave é um hash, então o IP não
