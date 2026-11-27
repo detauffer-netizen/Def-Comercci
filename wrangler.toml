@@ -2,6 +2,9 @@ name = "def-commerce"
 main = "src/index.js"
 compatibility_date = "2026-11-01"
 workers_dev = true
+# Conta Cloudflare "Detauffer" (o ID da conta não é segredo). Com ele, a
+# publicação só precisa do segredo CLOUDFLARE_API_TOKEN.
+account_id = "aadf4f618d8a2a3c8f8c6cb32641e7b9"
 
 # Arquivos estáticos (páginas, CSS, JS). O Worker roda primeiro em todas as
 # rotas para aplicar os cabeçalhos de segurança e o roteamento das vitrines.

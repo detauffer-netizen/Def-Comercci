@@ -54,8 +54,11 @@ próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 ## Particularidades
 
 - As páginas `/loja/<slug>` e `/loja/<slug>/p/<id>` são montadas no servidor (`src/lib/seo.js`) a partir de `public/vitrine.html`: não altere as tags `<title>`, `meta description` e `theme-color` desse arquivo sem ajustar as substituições.
-- As migrações 0001–0006 foram aplicadas manualmente em produção. Antes do primeiro
-  `wrangler d1 migrations apply --remote`, execute `scripts/bootstrap-d1-migrations.sql`.
+- As migrações 0001–0006 foram aplicadas manualmente em produção. O bootstrap
+  (`scripts/bootstrap-d1-migrations.sql`) **já foi executado em 27/11/2026**: a tabela
+  `d1_migrations` existe e registra 0001–0006; não execute de novo.
+- Publicação: workflow manual "Deploy" (GitHub Actions) neste repositório; precisa só do
+  segredo `CLOUDFLARE_API_TOKEN` aqui (o `account_id` está no `wrangler.toml`).
 - Imagens: o navegador comprime para WebP (máx. 1600 px) antes do upload; o servidor
   valida os bytes iniciais (JPEG/PNG/WebP), limita a 2 MB e grava em `stores/<store_id>/...`.
 - Cupons: o desconto é calculado em `couponDiscount` (`src/routes/public.js`) e o uso é consumido com `UPDATE ... WHERE uses < max_uses`; `orders.total_cents` é sempre o valor final: subtotal − desconto + taxa de entrega (`fulfillmentFor`).
