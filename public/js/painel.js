@@ -193,6 +193,8 @@ function route() {
   if (state.me.user.must_change_password) return;
   let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
   if (!can(VIEW_PERMISSION[view])) view = "inicio";
+  // O filtro aberto por uma recomendação vale só até sair de Produtos.
+  if (view !== "produtos") state.productIds = null;
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
   for (const a of document.querySelectorAll(".nav a")) {
     if (a.dataset.view === view) a.setAttribute("aria-current", "page");
@@ -216,36 +218,24 @@ async function loadHome() {
   const showReports = can("reports");
   const showOrders = can("orders");
   const showProducts = can("products");
-  $("kpis").hidden = !showReports;
+  $("dash-card").hidden = !showReports;
   $("perf-card").hidden = !showReports;
-  if (showReports) loadPerformance(state.perfDays || 30).catch(fail);
+  if (showReports) {
+    loadDashboard().catch(fail);
+    loadPerformance(state.perfDays || 30).catch(fail);
+  }
   $("recent-card").hidden = !showOrders;
   $("stock-card").hidden = !showProducts;
   if (showOrders) loading($("recent-orders"));
-  const [metrics, orders, products] = await Promise.all([
-    showReports ? api("/api/metrics") : null,
+  const [orders, products] = await Promise.all([
     showOrders ? api("/api/orders") : [],
     showProducts ? api("/api/products") : [],
   ]);
-  state.metrics = metrics;
   state.orders = orders;
   state.products = products;
   updatePendingBadge();
   $("h-inicio").textContent = state.me.user.role === "owner" ? "Olá! Veja como está sua loja" : `Olá${state.me.user.name ? ", " + state.me.user.name.split(" ")[0] : ""}!`;
 
-  const kpi = (label, value, cls = "") => h("div", { class: `kpi ${cls}` }, h("small", { text: label }), h("strong", { text: value }));
-  if (metrics) {
-    $("kpis").replaceChildren(
-      kpi("Vendas concluídas", money(metrics.revenue), "highlight"),
-      kpi("Últimos 30 dias", money(metrics.revenue_30d)),
-      kpi("Pedidos pendentes", String(metrics.pending)),
-      kpi("Ticket médio", money(metrics.average_ticket)),
-      kpi("Pedidos (24 h)", String(metrics.orders_24h)),
-      kpi("Clientes", String(metrics.customers)),
-      kpi("Produtos ativos", String(metrics.active)),
-      kpi("Unidades em estoque", String(metrics.units)),
-    );
-  }
 
   const s = state.me.store;
   const steps = [
@@ -271,8 +261,9 @@ async function loadHome() {
   if (showProducts) {
     const alerts = [];
     for (const p of products.filter((x) => x.active)) {
-      if (p.variants.length) for (const v of p.variants.filter((x) => x.active && x.stock <= 3)) alerts.push({ name: `${p.name} · ${v.name}`, stock: v.stock, sub: v.sku || p.category || "" });
-      else if (p.stock <= 3) alerts.push({ name: p.name, stock: p.stock, sub: p.sku ? `SKU ${p.sku}` : p.category || "" });
+      const min = minStock(p);
+      if (p.variants.length) for (const v of p.variants.filter((x) => x.active && x.stock <= min)) alerts.push({ name: `${p.name} · ${v.name}`, stock: v.stock, sub: v.sku || p.category || "" });
+      else if (p.stock <= min) alerts.push({ name: p.name, stock: p.stock, sub: p.sku ? `SKU ${p.sku}` : p.category || "" });
     }
     alerts.sort((a, b) => a.stock - b.stock);
     if (!alerts.length) empty($("stock-alerts"), "check", "Nenhum produto com estoque baixo.");
@@ -281,7 +272,9 @@ async function loadHome() {
       h("span", { class: `badge ${p.stock ? "badge-warn" : "badge-danger"}`, text: p.stock ? `${p.stock} un.` : "Esgotado" }))));
   }
   if (!showReports && !showOrders && !showProducts) {
-    $("kpis").hidden = false;
+    $("dash-card").hidden = false;
+    $("dash-periods").hidden = true;
+    $("dash-tips-box").hidden = true;
     empty($("kpis"), "store", "Seu acesso ainda não inclui nenhuma área. Fale com o proprietário da loja.");
   }
 }
@@ -301,6 +294,69 @@ const compactMoney = (cents) => {
   const v = cents / 100;
   return v >= 1000 ? `R$ ${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 };
+
+// ---------- Resumo da loja (central de decisões) ----------
+
+const PERIOD_LABEL = { today: "ontem", yesterday: "anteontem", "7d": "os 7 dias anteriores", "30d": "os 30 dias anteriores", custom: "o período anterior" };
+const minStock = (p) => (p.min_stock ?? 3);
+
+function delta(cur, prev, label) {
+  if (!prev && !cur) return h("span", { class: "delta flat", text: "sem vendas para comparar" });
+  if (!prev) return h("span", { class: "delta up", text: `novo em relação a ${label}` });
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+  return h("span", { class: `delta ${cls}`, text: `${pct > 0 ? "▲" : pct < 0 ? "▼" : "="} ${Math.abs(pct)}% vs. ${label}` });
+}
+
+async function loadDashboard(period = state.dashPeriod || "30d", custom = state.dashCustom) {
+  state.dashPeriod = period;
+  state.dashCustom = custom;
+  for (const c of document.querySelectorAll("#dash-periods .chip")) c.setAttribute("aria-pressed", String(c.dataset.period === period));
+  $("dash-custom").hidden = period !== "custom";
+  if (period === "custom" && !custom) return;
+  const query = period === "custom" ? `period=custom&start=${custom.start}&end=${custom.end}` : `period=${period}`;
+  const d = await api(`/api/dashboard?${query}`);
+  const c = d.current;
+  const label = PERIOD_LABEL[period];
+  const kpi = (title, value, extra, cls = "") => h("div", { class: `kpi ${cls}` }, h("small", { text: title }), h("strong", { text: value }), extra || null);
+  const profit = c.gross_profit === null
+    ? kpi("Lucro bruto estimado", "—", h("span", { class: "delta flat", text: c.sales ? "informe o custo dos produtos" : "sem vendas no período" }))
+    : kpi("Lucro bruto estimado", money(c.gross_profit),
+      c.cost_coverage < 100 ? h("span", { class: "delta flat", text: `sobre ${c.cost_coverage}% das vendas (itens com custo)` }) : delta(c.gross_profit, d.previous.gross_profit || 0, label));
+  $("kpis").replaceChildren(
+    kpi("Faturamento", money(c.revenue), delta(c.revenue, d.previous.revenue, label), "highlight"),
+    profit,
+    kpi("Vendas", String(c.sales), delta(c.sales, d.previous.sales, label)),
+    kpi("Ticket médio", money(c.average_ticket)),
+    kpi("Pedidos pendentes", String(d.pending_orders)),
+    kpi("Estoque baixo", String(d.stock.restock_count), h("span", { class: "delta flat", text: "itens no mínimo ou abaixo" })),
+    kpi("Investido em estoque", money(d.stock.cost_value), d.stock.products_without_cost ? h("span", { class: "delta flat", text: `${d.stock.products_without_cost} produto(s) sem custo` }) : null),
+    kpi("Estoque a preço de venda", money(d.stock.sale_value), d.stock.potential_profit !== null ? h("span", { class: "delta flat", text: `lucro potencial ${money(d.stock.potential_profit)}` }) : null),
+  );
+  const range = d.start === d.end ? formatDay(d.start) : `${formatDay(d.start)} a ${formatDay(d.end)}`;
+  $("dash-note").textContent = `${range} · vendas = pedidos confirmados ou concluídos. Lucro bruto = vendas − custo dos produtos − descontos (sem despesas).`;
+  const ICON = { pending: "receipt", restock: "alert", top: "star", stale: "history", cost: "edit", carts: "chat" };
+  const usable = d.recommendations.filter((t) => can(t.action.view === "produtos" ? "products" : "orders"));
+  if (!usable.length) return empty($("dash-tips"), "check", "Tudo em dia por aqui.");
+  $("dash-tips").replaceChildren(...usable.map((t) => h("button", {
+    type: "button", class: `tip ${["restock", "pending"].includes(t.kind) ? "warn" : ""}`, onclick: () => followTip(t.action),
+  }, icon(ICON[t.kind] || "spark"), h("span", { text: t.text }), icon("external", "icon icon-sm"))));
+}
+
+const formatDay = (iso) => iso.split("-").reverse().join("/");
+
+function followTip(action) {
+  if (action.view === "produtos") {
+    state.productIds = { label: action.label, ids: new Set(action.ids) };
+    $("product-filter").value = "all";
+    $("product-search").value = "";
+  } else {
+    state.orderStatus = action.status || "";
+    for (const chip of document.querySelectorAll("#order-filters .chip")) chip.setAttribute("aria-pressed", String(chip.dataset.status === state.orderStatus));
+  }
+  if (location.hash === `#${action.view}`) route();
+  else location.hash = action.view;
+}
 
 async function loadPerformance(days) {
   state.perfDays = days;
@@ -447,11 +503,13 @@ async function loadProducts() {
 function renderProducts() {
   const q = $("product-search").value.trim().toLowerCase();
   const filter = $("product-filter").value;
+  const only = state.productIds;
   const list = state.products.filter((p) => {
-    if (q && !`${p.name} ${p.sku} ${p.category}`.toLowerCase().includes(q)) return false;
+    if (only && !only.ids.has(p.id)) return false;
+    if (q && !`${p.name} ${p.sku} ${p.category} ${p.barcode || ""} ${p.supplier || ""}`.toLowerCase().includes(q)) return false;
     if (filter === "active") return p.active;
     if (filter === "inactive") return !p.active;
-    if (filter === "low") return p.stock <= 3 || p.variants.some((v) => v.active && v.stock <= 3);
+    if (filter === "low") return p.stock <= minStock(p) || p.variants.some((v) => v.active && v.stock <= minStock(p));
     if (filter === "featured") return p.featured;
     return true;
   });
@@ -459,10 +517,17 @@ function renderProducts() {
     return empty($("product-list"), "box", "Você ainda não cadastrou produtos.",
       h("button", { class: "btn btn-primary", onclick: () => openProduct(null) }, icon("plus"), "Cadastrar primeiro produto"));
   }
-  if (!list.length) return empty($("product-list"), "search", "Nenhum produto encontrado com esse filtro.");
-  $("product-list").replaceChildren(...list.map((p) => {
+  const banner = only ? h("div", { class: "filter-banner", role: "status" },
+    h("span", { text: `Mostrando: ${only.label} (${list.length})` }),
+    h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => { state.productIds = null; renderProducts(); } }, "Ver todos")) : null;
+  if (!list.length) {
+    empty($("product-list"), "search", "Nenhum produto encontrado com esse filtro.");
+    if (banner) $("product-list").prepend(banner);
+    return;
+  }
+  $("product-list").replaceChildren(...(banner ? [banner] : []), ...list.map((p) => {
     const cover = p.images[0]?.url;
-    const stockBadge = p.stock === 0 ? ["badge-danger", "Esgotado"] : p.stock <= 3 ? ["badge-warn", `${p.stock} em estoque`] : ["badge-ok", `${p.stock} em estoque`];
+    const stockBadge = p.stock === 0 ? ["badge-danger", "Esgotado"] : p.stock <= minStock(p) ? ["badge-warn", `${p.stock} em estoque`] : ["badge-ok", `${p.stock} em estoque`];
     return h("button", { class: `product-item ${p.active ? "" : "inactive"}`, type: "button", onclick: () => openProduct(p) },
       h("span", { class: "thumb", style: cover ? { backgroundImage: `url("${cover}")` } : {} }, cover ? null : icon("image")),
       h("span", { class: "info" },
@@ -536,9 +601,17 @@ function openProduct(product) {
     f.featured.checked = product.featured;
     f.position.value = product.position || "";
     f.active.checked = product.active;
+    f.cost.value = centsToInput(product.cost_cents);
+    f.min_stock.value = product.min_stock ?? "";
+    f.barcode.value = product.barcode || "";
+    f.supplier.value = product.supplier || "";
+    f.location.value = product.location || "";
   } else {
     f.active.checked = true;
   }
+  $("product-advanced").open = !!(product && (product.cost_cents !== null || product.min_stock !== null || product.barcode || product.supplier || product.location));
+  $("supplier-options").replaceChildren(...[...new Set(state.products.map((p) => p.supplier).filter(Boolean))].map((s) => h("option", { value: s })));
+  updateMargin();
   $("opt1").value = "";
   $("opt2").value = "";
   setVariants(product ? product.variants : []);
@@ -794,6 +867,10 @@ function readProductForm() {
   if (price === null || Number.isNaN(price)) return "Informe um preço válido, por exemplo 59,90.";
   if (Number.isNaN(promo)) return "Preço promocional inválido.";
   if (promo !== null && promo >= price) return "O preço promocional deve ser menor que o preço normal.";
+  const cost = parseMoney(f.cost.value);
+  if (Number.isNaN(cost)) return "Preço de custo inválido, por exemplo 25,00.";
+  const minStockValue = f.min_stock.value === "" ? null : Number(f.min_stock.value);
+  if (minStockValue !== null && (!Number.isInteger(minStockValue) || minStockValue < 0)) return "O alerta de reposição deve ser um número inteiro, zero ou maior.";
   const v = readVariants();
   if (v.error) return v.error;
   if (!v.variants.length && (f.stock.value === "" || !Number.isInteger(stock) || stock < 0)) return "Informe o estoque (número inteiro, zero ou maior).";
@@ -802,7 +879,28 @@ function readProductForm() {
     stock: v.variants.length ? 0 : stock, sku: f.sku.value, category: f.category.value, featured: f.featured.checked, active: f.active.checked,
     position: f.position.value ? Number(f.position.value) : 0,
     variants: v.variants,
+    cost_cents: cost, min_stock: minStockValue, barcode: f.barcode.value.trim(), supplier: f.supplier.value, location: f.location.value,
   };
+}
+
+// Margem (lucro sobre o preço de venda) e markup (lucro sobre o custo).
+function updateMargin() {
+  const f = $("product-form").elements;
+  const price = parseMoney(f.promo.value) || parseMoney(f.price.value);
+  const cost = parseMoney(f.cost.value);
+  const box = $("margin-info");
+  if (!price || cost === null || Number.isNaN(cost) || Number.isNaN(price)) {
+    box.textContent = "Informe o preço de custo para ver o lucro por unidade, a margem e o markup.";
+    return;
+  }
+  const profit = price - cost;
+  const margin = Math.round((profit / price) * 1000) / 10;
+  const markup = cost ? Math.round((profit / cost) * 1000) / 10 : null;
+  box.replaceChildren(
+    "Lucro por unidade: ", h("strong", { text: money(profit) }),
+    ` · margem ${String(margin).replace(".", ",")}%`,
+    markup === null ? "" : ` · markup ${String(markup).replace(".", ",")}%`,
+    profit < 0 ? h("span", { class: "form-error", text: " (vendendo abaixo do custo)" }) : "");
 }
 
 async function saveProduct(event) {
@@ -820,7 +918,10 @@ async function saveProduct(event) {
   try {
     let id = state.editing?.id;
     if (id) await api(`/api/products/${id}`, { method: "PATCH", body: data });
-    else id = (await api("/api/products", { method: "POST", body: data })).id;
+    else {
+      id = (await api("/api/products", { method: "POST", body: data })).id;
+      state.productIds = null;
+    }
     if (state.pendingFiles.length) {
       button.textContent = "Enviando fotos...";
       const failed = await uploadImages(id, state.pendingFiles);
@@ -1380,6 +1481,18 @@ window.addEventListener("hashchange", () => { if (!$("app").hidden) route(); });
 
 $("new-product").addEventListener("click", () => openProduct(null));
 $("product-search").addEventListener("input", renderProducts);
+for (const name of ["price", "promo", "cost"]) $("product-form").elements[name].addEventListener("input", updateMargin);
+$("dash-periods").addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  loadDashboard(chip.dataset.period, chip.dataset.period === "custom" ? state.dashCustom : null).catch(fail);
+});
+$("dash-custom").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const { start, end } = Object.fromEntries(new FormData(e.target));
+  if (!start || !end || start > end) return toast("Escolha a data inicial e a final.", { error: true });
+  loadDashboard("custom", { start, end }).catch(fail);
+});
 $("product-filter").addEventListener("change", renderProducts);
 $("product-form").addEventListener("submit", saveProduct);
 $("delete-product").addEventListener("click", deleteProduct);

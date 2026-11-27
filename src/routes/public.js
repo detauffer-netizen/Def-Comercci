@@ -120,7 +120,7 @@ export async function priceItems(db, store, list) {
     // Preço e nome sempre vêm do banco, nunca do navegador.
     const product = await db
       .prepare(
-        `SELECT name,price_cents,promo_price_cents,stock,sku,
+        `SELECT name,price_cents,promo_price_cents,stock,sku,cost_cents,
                 EXISTS (SELECT 1 FROM product_variants WHERE product_id=products.id) AS has_variants
            FROM products WHERE id=? AND store_id=? AND active=1`,
       )
@@ -144,7 +144,8 @@ export async function priceItems(db, store, list) {
       throw new HttpError(409, `Estoque insuficiente para ${product.name}${line.variant_name ? ` (${line.variant_name})` : ""}`);
     }
     total += line.price_cents * item.quantity;
-    items.push(line);
+    // Custo no momento da venda (uso interno; nunca vai para o comprador).
+    items.push(product.cost_cents === null || product.cost_cents === undefined ? line : { ...line, cost_cents: product.cost_cents });
   }
   return { items, subtotal: total };
 }
@@ -266,6 +267,6 @@ export async function createOrderRequest(request, env, params) {
   return json({
     id: orderId, code: orderId.slice(0, 8).toUpperCase(), subtotal_cents: subtotal, discount_cents: discount,
     coupon_code: coupon?.code || "", fulfillment: ship.fulfillment, delivery_fee_cents: ship.fee, address: ship.address,
-    total_cents: total, items,
+    total_cents: total, items: items.map(({ cost_cents: _c, ...i }) => i),
   }, 201);
 }

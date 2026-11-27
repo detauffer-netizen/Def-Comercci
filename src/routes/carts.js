@@ -44,7 +44,7 @@ export async function saveCartReminder(request, env, params) {
      ON CONFLICT(store_id,id) DO UPDATE SET customer_name=excluded.customer_name, customer_phone=excluded.customer_phone,
        items_json=excluded.items_json, total_cents=excluded.total_cents, updated_at=datetime('now')
      WHERE abandoned_carts.status IN ('open','contacted')`,
-  ).bind(store.id, id, name, phone, JSON.stringify(items), subtotal).run();
+  ).bind(store.id, id, name, phone, JSON.stringify(items.map(({ cost_cents: _c, ...i }) => i)), subtotal).run();
   return json({ saved: true });
 }
 

@@ -182,7 +182,24 @@ try {
     await panel.locator("#customer-list .row", { hasText: "Maria Cliente" }).waitFor();
     await panel.locator('.nav a[data-view="inicio"]').click();
     await panel.locator("#kpis .kpi").first().waitFor();
-    assert.match(await panel.locator("#kpis").textContent(), /Clientes1/);
+    await panel.locator("#kpis .kpi", { hasText: "Faturamento" }).waitFor();
+    assert.match(await panel.locator("#kpis").textContent(), /Vendas1/);
+    // Recomendação acionável: produto sem custo leva à lista filtrada.
+    const tip = panel.locator("#dash-tips .tip", { hasText: "preço de custo" });
+    await tip.click();
+    await panel.locator("#product-list .filter-banner", { hasText: "Sem preço de custo" }).waitFor();
+    await panel.locator("#product-list .product-item").first().click();
+    const pf = panel.locator("#product-form");
+    await pf.locator("#product-advanced summary").click();
+    await pf.getByLabel("Preço de custo (R$)").fill("50,00");
+    await pf.locator("#margin-info", { hasText: "margem" }).waitFor();
+    await pf.getByLabel("Fornecedor").fill("Ateliê Central");
+    await pf.getByRole("button", { name: "Salvar produto" }).click();
+    await panel.locator("#product-dialog").waitFor({ state: "hidden" });
+    await panel.locator('.nav a[data-view="inicio"]').click();
+    await panel.locator("#dash-periods").getByRole("button", { name: "Hoje" }).click();
+    await panel.locator("#kpis .kpi", { hasText: "Investido em estoque" }).filter({ hasText: "R$" }).waitFor();
+    await shot(panel, "02b-resumo-mobile");
   });
 
   await check("todas as telas sem rolagem horizontal a 320 px", async () => {

@@ -15,6 +15,7 @@ import * as coupons from "./routes/coupons.js";
 import * as twofactor from "./routes/twofactor.js";
 import * as ai from "./routes/ai.js";
 import * as carts from "./routes/carts.js";
+import * as dashboard from "./routes/dashboard.js";
 import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
@@ -79,6 +80,7 @@ const ROUTES = [
   ["DELETE", "/api/customers/:phone", privacy.forgetCustomer, "customers"],
   ["GET", "/api/metrics", panel.metrics, "reports"],
   ["GET", "/api/reports", reports.report, "reports"],
+  ["GET", "/api/dashboard", dashboard.dashboard, "reports"],
   ["GET", "/api/account/export", privacy.exportData, "owner"],
   ["POST", "/api/account/delete", privacy.deleteStore, "owner"],
   ["GET", "/api/audit-log", panel.auditLog, "owner"],
