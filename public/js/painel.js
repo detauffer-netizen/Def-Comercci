@@ -508,6 +508,8 @@ async function loadProducts() {
   $("category-options").replaceChildren(...cats.map((c) => h("option", { value: c })));
   if ($("stock-history").closest("details").open) loadStockHistory();
   if ($("category-card").open) loadCategoryOrder().catch(fail);
+  if ($("supplier-card").open) loadSuppliers().catch(fail);
+  refreshRestockCount().catch(() => {});
 }
 
 function renderProducts() {
@@ -583,9 +585,16 @@ function renderCategoryOrder() {
 async function loadStockHistory() {
   const box = $("stock-history");
   loading(box);
-  const rows = await api("/api/stock-movements");
-  if (!rows.length) return empty(box, "history", "Nenhuma movimentação registrada.");
-  box.replaceChildren(...rows.slice(0, 60).map((m) => h("div", { class: "row" },
+  const [rows, manual] = await Promise.all([api("/api/stock-movements"), api("/api/stock-adjustments")]);
+  if (!rows.length && !manual.length) return empty(box, "history", "Nenhuma movimentação registrada.");
+  const manualRows = manual.slice(0, 30).map((m) => h("div", { class: "row" },
+    h("div", { class: "grow" }, h("strong", { text: `${m.kind_label}: ${m.product_name}` }),
+      h("small", { text: [formatDate(m.created_at), m.supplier, m.reason].filter(Boolean).join(" · ") })),
+    h("span", { class: `badge ${m.delta > 0 ? "badge-ok" : m.delta < 0 ? "badge-warn" : ""}`, text: `${m.delta > 0 ? "+" : ""}${m.delta}` }),
+    h("small", { text: `saldo ${m.stock_after}` })));
+  box.replaceChildren(
+    ...(manualRows.length ? [h("h3", { class: "top-title", text: "Entradas, perdas e inventários" }), ...manualRows, h("h3", { class: "top-title", text: "Todas as mudanças de estoque" })] : []),
+    ...rows.slice(0, 60).map((m) => h("div", { class: "row" },
     h("div", { class: "grow" }, h("strong", { text: m.product_name }), h("small", { text: formatDate(m.created_at) })),
     h("span", { class: `badge ${m.delta > 0 ? "badge-ok" : "badge-warn"}`, text: `${m.delta > 0 ? "+" : ""}${m.delta}` }),
     h("small", { text: `saldo ${m.stock_after}` }))));
@@ -1473,6 +1482,183 @@ function updateCalc() {
   $("calc-apply").hidden = false;
 }
 
+// ---------- Estoque avançado ----------
+
+const STOCK_KIND = {
+  entry: { help: "Mercadoria que chegou (compra ou reposição). Soma ao estoque.", qty: "Quantidade que chegou", button: "Registrar entrada" },
+  loss: { help: "Avaria, vencimento, uso interno ou extravio. Tira do estoque.", qty: "Quantidade perdida", button: "Registrar perda" },
+  count: { help: "Contagem física: informe quantas unidades existem de verdade. O sistema ajusta a diferença.", qty: "Quantidade contada", button: "Salvar contagem" },
+};
+const stockForm = { kind: "entry" };
+let suppliers = [];
+
+async function openStock(productId = "", variantId = "") {
+  if (!state.products.length || state.productsStale) {
+    state.products = await api("/api/products");
+    state.productsStale = false;
+  }
+  suppliers = await api("/api/suppliers").catch(() => []);
+  const form = $("stock-form");
+  form.reset();
+  $("stock-error").hidden = true;
+  $("stock-product").replaceChildren(h("option", { value: "", text: "Escolha o produto" }),
+    ...[...state.products].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((p) => h("option", { value: p.id, text: p.name })));
+  $("stock-product").value = productId;
+  const names = new Set([...suppliers.map((s) => s.name), ...state.products.map((p) => p.supplier).filter(Boolean)]);
+  $("stock-supplier-options").replaceChildren(...[...names].map((n) => h("option", { value: n })));
+  setStockKind("entry");
+  updateStockProduct(variantId);
+  $("stock-dialog").showModal();
+}
+
+function setStockKind(kind) {
+  stockForm.kind = kind;
+  for (const b of document.querySelectorAll("#stock-kinds button")) b.setAttribute("aria-checked", String(b.dataset.kind === kind));
+  const k = STOCK_KIND[kind];
+  $("stock-help").textContent = k.help;
+  $("stock-qty-label").textContent = k.qty;
+  $("save-stock").textContent = k.button;
+  $("stock-cost-field").hidden = kind !== "entry";
+  $("stock-supplier-field").hidden = kind !== "entry";
+  $("stock-cost-note").hidden = kind !== "entry";
+}
+
+function updateStockProduct(variantId = "") {
+  const p = state.products.find((x) => x.id === $("stock-product").value);
+  const variants = p?.variants || [];
+  $("stock-variant-field").hidden = !variants.length;
+  $("stock-variant").replaceChildren(...variants.map((x) => h("option", { value: x.id, text: `${x.name} (${x.stock} em estoque)` })));
+  if (variantId) $("stock-variant").value = variantId;
+  const f = $("stock-form").elements;
+  if (p && !f.supplier.value) f.supplier.value = p.supplier || "";
+  updateStockCurrent();
+}
+
+function updateStockCurrent() {
+  const p = state.products.find((x) => x.id === $("stock-product").value);
+  if (!p) return void ($("stock-current").textContent = "");
+  const vr = p.variants.length ? p.variants.find((x) => x.id === $("stock-variant").value) : null;
+  const stock = vr ? vr.stock : p.stock;
+  $("stock-current").textContent = `Estoque atual: ${stock} un.${p.cost_cents !== null ? ` · custo ${money(p.cost_cents)}` : ""}`;
+}
+
+async function saveStock(event) {
+  event.preventDefault();
+  const f = event.target.elements;
+  const err = $("stock-error");
+  const show = (text) => { err.textContent = text; err.hidden = false; };
+  err.hidden = true;
+  const productId = f.product.value;
+  if (!productId) return show("Escolha o produto.");
+  const quantity = Number(f.quantity.value);
+  if (f.quantity.value === "" || !Number.isInteger(quantity) || quantity < 0) return show("Informe a quantidade (número inteiro).");
+  if (stockForm.kind !== "count" && quantity === 0) return show("A quantidade precisa ser maior que zero.");
+  const unitCost = parseMoney(f.unit_cost.value);
+  if (Number.isNaN(unitCost)) return show("Custo inválido, por exemplo 12,50.");
+  const p = state.products.find((x) => x.id === productId);
+  const body = {
+    product_id: productId, kind: stockForm.kind, quantity, reason: f.reason.value,
+    ...(p.variants.length ? { variant_id: f.variant.value } : {}),
+    ...(stockForm.kind === "entry" ? { unit_cost_cents: unitCost, supplier: f.supplier.value } : {}),
+  };
+  await busy($("save-stock"), async () => {
+    try {
+      const r = await api("/api/stock-adjustments", { method: "POST", body });
+      $("stock-dialog").close();
+      toast(stockForm.kind === "count" && r.delta === 0 ? "Contagem conferida: estoque já estava certo." : `Estoque atualizado: ${r.delta > 0 ? "+" : ""}${r.delta} (agora ${r.stock_after}).`);
+      state.productsStale = true;
+      await loadProducts();
+    } catch (error) {
+      if (error.status === 401) return fail(error);
+      show(error.message);
+    }
+  });
+}
+
+async function refreshRestockCount() {
+  const r = await api("/api/restock");
+  $("restock-count").hidden = !r.count;
+  $("restock-count").textContent = String(r.count);
+  return r;
+}
+
+async function openRestock() {
+  const r = await refreshRestockCount();
+  const box = $("restock-list");
+  if (!r.count) empty(box, "check", "Nada para repor agora. Todos os itens estão acima do alerta de reposição.");
+  else box.replaceChildren(...r.groups.map((g) => {
+    const inputs = [];
+    const listText = () => [
+      `Pedido de reposição — ${state.me.store.name}`,
+      "",
+      ...g.items.map((it, i) => `${inputs[i].value || it.suggested}x ${it.name}${it.sku ? ` (SKU ${it.sku})` : ""}`),
+    ].join("\n");
+    const rows = g.items.map((it) => {
+      const input = h("input", { type: "number", min: "0", step: "1", inputmode: "numeric", value: String(it.suggested), "aria-label": `Quantidade a comprar de ${it.name}` });
+      inputs.push(input);
+      return h("div", { class: "restock-item" },
+        h("div", { class: "name" }, h("strong", { text: it.name }),
+          h("small", { text: `tem ${it.stock}${it.reserved ? ` · ${it.reserved} reservado(s)` : ""} · alerta em ${it.min}${it.cost_cents !== null ? ` · custo ${money(it.cost_cents)}` : ""}` })),
+        input);
+    });
+    const send = g.phone
+      ? h("a", { class: "btn btn-blue btn-sm", target: "_blank", rel: "noopener", href: "#", onclick: (e) => { e.currentTarget.href = whatsappLink(g.phone, listText()); } }, icon("chat", "icon icon-sm"), "Enviar ao fornecedor")
+      : h("a", { class: "btn btn-ghost btn-sm", target: "_blank", rel: "noopener", href: "#", onclick: (e) => { e.currentTarget.href = `https://wa.me/?text=${encodeURIComponent(listText())}`; } }, icon("share", "icon icon-sm"), "Compartilhar");
+    return h("section", { class: "restock-group" },
+      h("h3", { text: g.supplier || "Sem fornecedor definido" }),
+      h("p", { class: "muted", text: `${g.items.length} item(ns)${g.estimated_cost_cents !== null ? ` · custo estimado ${money(g.estimated_cost_cents)} (sugestão)` : ""}` }),
+      ...rows,
+      h("div", { class: "row-actions", style: { marginTop: "10px" } }, send,
+        h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: async () => {
+          try { await navigator.clipboard.writeText(listText()); toast("Lista copiada."); } catch { toast("Não foi possível copiar.", { error: true }); }
+        } }, icon("copy", "icon icon-sm"), "Copiar lista")));
+  }));
+  $("restock-dialog").showModal();
+}
+
+async function loadSuppliers() {
+  suppliers = await api("/api/suppliers");
+  if (!suppliers.length) return empty($("supplier-list"), "users", "Nenhum fornecedor cadastrado. Com o WhatsApp do fornecedor, a lista de reposição vai direto para ele.");
+  $("supplier-list").replaceChildren(...suppliers.map((s) => h("div", { class: "row" },
+    h("div", { class: "grow" }, h("strong", { text: s.name }), h("small", { text: `${s.phone ? formatPhone(s.phone) : "sem WhatsApp"} · ${s.products} produto(s)` })),
+    h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => editSupplier(s) }, "Editar"),
+    h("button", { type: "button", class: "btn btn-ghost btn-icon btn-sm", "aria-label": `Excluir fornecedor ${s.name}`, onclick: (e) => busy(e.currentTarget, async () => {
+      if (!confirm(`Excluir o fornecedor "${s.name}"? Os produtos continuam com o nome anotado.`)) return;
+      await api(`/api/suppliers/${s.id}`, { method: "DELETE" });
+      await loadSuppliers();
+    }) }, icon("trash", "icon icon-sm")))));
+}
+
+function editSupplier(s) {
+  const f = $("supplier-form");
+  f.dataset.editing = s ? s.id : "";
+  f.elements.name.value = s?.name || "";
+  f.elements.phone.value = s?.phone ? formatPhone(s.phone) : "";
+  $("save-supplier").textContent = s ? "Salvar fornecedor" : "Adicionar fornecedor";
+  $("cancel-supplier").hidden = !s;
+  if (s) f.elements.name.focus();
+}
+
+async function saveSupplier(event) {
+  event.preventDefault();
+  const f = event.target;
+  const body = { name: f.elements.name.value, phone: f.elements.phone.value };
+  if (!body.name.trim()) return toast("Informe o nome do fornecedor.", { error: true });
+  await busy($("save-supplier"), async () => {
+    try {
+      if (f.dataset.editing) await api(`/api/suppliers/${f.dataset.editing}`, { method: "PATCH", body });
+      else await api("/api/suppliers", { method: "POST", body });
+      toast("Fornecedor salvo.");
+      editSupplier(null);
+      f.reset();
+      state.productsStale = true;
+      await loadSuppliers();
+    } catch (error) {
+      toast(error.message, { error: true });
+    }
+  });
+}
+
 async function setOrderStatus(order, status, button) {
   const confirmText = {
     cancelled: order.status === "confirmed" ? "Cancelar o pedido e devolver os itens ao estoque?" : "Cancelar este pedido?",
@@ -1921,6 +2107,18 @@ $("pay-methods").addEventListener("click", (e) => {
   if (b) setPayMethod(b.dataset.method);
 });
 $("sale-form").addEventListener("submit", finishSale);
+$("open-stock").addEventListener("click", () => openStock().catch(fail));
+$("open-restock").addEventListener("click", () => openRestock().catch(fail));
+$("stock-kinds").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-kind]");
+  if (b) setStockKind(b.dataset.kind);
+});
+$("stock-product").addEventListener("change", () => updateStockProduct());
+$("stock-variant").addEventListener("change", updateStockCurrent);
+$("stock-form").addEventListener("submit", saveStock);
+$("supplier-form").addEventListener("submit", saveSupplier);
+$("cancel-supplier").addEventListener("click", () => { editSupplier(null); $("supplier-form").reset(); });
+$("supplier-card").addEventListener("toggle", (e) => { if (e.target.open) loadSuppliers().catch(fail); });
 $("return-form").addEventListener("submit", confirmReturn);
 $("receive-form").addEventListener("submit", confirmReceive);
 $("expense-form").addEventListener("submit", saveExpense);
