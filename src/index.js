@@ -35,6 +35,7 @@ const ROUTES = [
   ["GET", "/api/store/:slug", pub.storefront, "public"],
   ["POST", "/api/order-request/:slug", pub.createOrderRequest, "public"],
   ["POST", "/api/order-preview/:slug", pub.orderPreview, "public"],
+  ["GET", "/api/order-status/:token", pub.orderStatus, "public"],
   ["PUT", "/api/cart-reminder/:slug", carts.saveCartReminder, "public"],
   ["DELETE", "/api/cart-reminder/:slug/:token", carts.deleteCartReminder, "public"],
   ["POST", "/api/billing/webhook/mercadopago", billing.mercadoPagoWebhook, "public"],
@@ -234,6 +235,11 @@ export default {
     }
     const catalog = path.match(/^\/loja\/([a-z0-9-]{3,60})\/catalogo\/?$/);
     if (catalog) return asset(env, request, "/catalogo.html", { "X-Robots-Tag": "noindex" });
+    // Acompanhamento do pedido: o código secreto fica no endereço, então a
+    // página não é indexada nem repassa o endereço a outros sites.
+    if (/^\/pedido\/[0-9a-f]{32}\/?$/.test(path)) {
+      return asset(env, request, "/pedido.html", { "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" });
+    }
     if (path === "/privacidade") return asset(env, request, "/privacidade.html");
     if (path === "/termos") return asset(env, request, "/termos.html");
     if (path === "/sitemap.xml") return withHeaders(await sitemap(env, request));

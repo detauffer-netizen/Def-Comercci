@@ -74,6 +74,26 @@ export function color(value) {
   return text.toLowerCase();
 }
 
+export const TEMPLATES = ["geral", "roupas", "eletronicos", "utilidades", "ferramentas", "moveis", "cosmeticos"];
+
+// Horário de funcionamento: até 2 faixas por dia da semana.
+export function hours(value) {
+  if (value === null || value === undefined || value === "") return [];
+  if (!Array.isArray(value) || value.length > 14) throw new HttpError(400, "Horário de funcionamento inválido");
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const perDay = new Map();
+  const out = value.map((slot) => {
+    const d = Number(slot?.d);
+    if (!Number.isInteger(d) || d < 0 || d > 6 || !time.test(slot?.open || "") || !time.test(slot?.close || "") || slot.open >= slot.close) {
+      throw new HttpError(400, "Horário de funcionamento inválido: confira os dias e horas");
+    }
+    perDay.set(d, (perDay.get(d) || 0) + 1);
+    if (perDay.get(d) > 2) throw new HttpError(400, "Use no máximo dois horários por dia");
+    return { d, open: slot.open, close: slot.close };
+  });
+  return out.sort((a, b) => a.d - b.d || a.open.localeCompare(b.open));
+}
+
 export function flag(value) {
   return value === true || value === 1 || value === "1" ? 1 : 0;
 }

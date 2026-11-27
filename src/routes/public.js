@@ -5,6 +5,7 @@ import { rateLimitByIp } from "../lib/session.js";
 import { imageUrl } from "../lib/images.js";
 import * as v from "../lib/validate.js";
 import { markCartOrdered } from "./carts.js";
+import { parseHours } from "./panel.js";
 
 export function effectivePrice(product) {
   const promo = product.promo_price_cents;
@@ -14,7 +15,8 @@ export function effectivePrice(product) {
 export async function activeStore(db, slug) {
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) return null;
   return db
-    .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key,delivery_fee_cents,free_delivery_above_cents,pickup_enabled,category_order FROM stores WHERE slug=? AND status='active'")
+    .prepare(`SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key,delivery_fee_cents,free_delivery_above_cents,pickup_enabled,
+                     category_order,template,hours_json,announcement FROM stores WHERE slug=? AND status='active'`)
     .bind(slug)
     .first();
 }
@@ -58,7 +60,8 @@ export async function storefront(request, env, params) {
   if (!store) throw new HttpError(404, "Loja não encontrada");
   const products = await db
     .prepare(
-      `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured
+      `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,
+            (created_at IS NOT NULL AND created_at >= datetime('now','-30 days')) AS is_new
          FROM products WHERE store_id=? AND active=1
         ORDER BY featured DESC, position, name COLLATE NOCASE`,
     )
@@ -80,6 +83,9 @@ export async function storefront(request, env, params) {
       banner_url: imageUrl(store.banner_key),
       delivery: deliveryOptions(store),
       category_order: parseCategoryOrder(store.category_order),
+      template: store.template || "geral",
+      hours: parseHours(store.hours_json),
+      announcement: store.announcement || "",
       products: products.results.map((p) => {
         const options = (variants.get(p.id) || []).map((x) => ({
           id: x.id, name: x.name, stock: x.stock, final_price_cents: variantPrice(p, x),
@@ -89,6 +95,7 @@ export async function storefront(request, env, params) {
           // Produto com variações: só as ativas contam para a vitrine.
           stock: hasVariants.has(p.id) ? options.reduce((sum, x) => sum + x.stock, 0) : p.stock,
           featured: !!p.featured,
+          is_new: !!p.is_new,
           final_price_cents: options.length ? Math.min(...options.map((x) => x.final_price_cents)) : effectivePrice(p),
           images: (images.get(p.id) || []).map((i) => i.url),
           variants: options,
@@ -250,15 +257,17 @@ export async function createOrderRequest(request, env, params) {
   }
   const total = subtotal - discount + ship.fee;
   const orderId = crypto.randomUUID();
+  // Código secreto (128 bits) da página de acompanhamento: não dá para adivinhar.
+  const publicToken = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
   try {
     await db
       .prepare(
         `INSERT INTO orders(id,store_id,items_json,total_cents,subtotal_cents,discount_cents,coupon_code,customer_name,customer_phone,notes,
-                            fulfillment,delivery_fee_cents,address)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                            fulfillment,delivery_fee_cents,address,public_token)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .bind(orderId, store.id, JSON.stringify(items), total, subtotal, discount, coupon?.code || "", customerName, customerPhone, notes,
-        ship.fulfillment, ship.fee, ship.address)
+        ship.fulfillment, ship.fee, ship.address, publicToken)
       .run();
   } catch (error) {
     if (coupon) await db.prepare("UPDATE coupons SET uses=uses-1 WHERE id=? AND uses>0").bind(coupon.id).run();
@@ -269,5 +278,42 @@ export async function createOrderRequest(request, env, params) {
     id: orderId, code: orderId.slice(0, 8).toUpperCase(), subtotal_cents: subtotal, discount_cents: discount,
     coupon_code: coupon?.code || "", fulfillment: ship.fulfillment, delivery_fee_cents: ship.fee, address: ship.address,
     total_cents: total, items: items.map(({ cost_cents: _c, ...i }) => i),
+    tracking_url: `/pedido/${publicToken}`,
   }, 201);
+}
+
+const ORDER_STATUS = {
+  pending: "Recebido — aguardando confirmação da loja",
+  confirmed: "Confirmado pela loja",
+  completed: "Concluído",
+  cancelled: "Cancelado",
+};
+
+// GET /api/order-status/:token — acompanhamento público, sem dados pessoais
+// (só o primeiro nome; nunca telefone, endereço ou observações).
+export async function orderStatus(request, env, params) {
+  const db = env.DB;
+  await rateLimitByIp(db, request, "order-status", 120);
+  const token = String(params.token || "");
+  if (!/^[0-9a-f]{32}$/.test(token)) throw new HttpError(404, "Pedido não encontrado");
+  const o = await db.prepare(
+    `SELECT o.id,o.status,o.created_at,o.items_json,o.subtotal_cents,o.discount_cents,o.delivery_fee_cents,o.total_cents,o.fulfillment,
+            o.customer_name, s.name AS store_name, s.slug, s.whatsapp, s.accent, s.logo_key
+       FROM orders o JOIN stores s ON s.id = o.store_id
+      WHERE o.public_token=? AND s.status='active'`,
+  ).bind(token).first();
+  if (!o) throw new HttpError(404, "Pedido não encontrado");
+  const returned = (await db.prepare("SELECT COUNT(*) AS n FROM order_returns WHERE order_id=?").bind(o.id).first()).n;
+  return json({
+    code: o.id.slice(0, 8).toUpperCase(),
+    status: o.status,
+    status_label: ORDER_STATUS[o.status] || o.status,
+    has_returns: returned > 0,
+    created_at: o.created_at,
+    first_name: String(o.customer_name || "").split(" ")[0],
+    fulfillment: o.fulfillment || "",
+    items: JSON.parse(o.items_json).map((i) => ({ name: i.name, variant_name: i.variant_name || "", quantity: i.quantity, price_cents: i.price_cents })),
+    subtotal_cents: o.subtotal_cents, discount_cents: o.discount_cents, delivery_fee_cents: o.delivery_fee_cents, total_cents: o.total_cents,
+    store: { name: o.store_name, slug: o.slug, whatsapp: o.whatsapp, accent: o.accent, logo_url: imageUrl(o.logo_key) },
+  }, 200, { "Cache-Control": "no-store" });
 }
