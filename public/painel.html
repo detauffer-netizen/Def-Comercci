@@ -303,6 +303,27 @@
             </div>
             <small class="muted">Sem nenhuma opção marcada, a forma de entrega é combinada pelo WhatsApp.</small>
           </fieldset>
+          <fieldset class="perms look-set">
+            <legend>Aparência da vitrine</legend>
+            <div class="input-with-btn">
+              <label class="field grow-field"><span>Modelo da vitrine</span><select name="template" class="input">
+                <option value="geral">Comércio geral</option>
+                <option value="roupas">Roupas e moda</option>
+                <option value="cosmeticos">Cosméticos e beleza</option>
+                <option value="eletronicos">Eletrônicos</option>
+                <option value="utilidades">Utilidades e casa</option>
+                <option value="ferramentas">Ferramentas e materiais</option>
+                <option value="moveis">Móveis e decoração</option>
+              </select></label>
+              <a class="btn btn-ghost btn-sm preview-link" id="template-preview" target="_blank" rel="noopener">Ver prévia</a>
+            </div>
+            <label class="field"><span>Aviso no topo da vitrine</span><input name="announcement" maxlength="140" placeholder="Ex.: Frete grátis acima de R$ 150"></label>
+          </fieldset>
+          <fieldset class="perms hours-set">
+            <legend>Horário de funcionamento</legend>
+            <div id="hours-editor" class="hours-editor"></div>
+            <small class="muted">A vitrine mostra "Aberto agora" ou quando a loja abre (horário de Brasília). Sem horários marcados, nada é exibido.</small>
+          </fieldset>
           <button class="btn btn-blue">Salvar alterações</button>
         </form>
         <div>

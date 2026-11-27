@@ -200,6 +200,7 @@ function route() {
   let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
   if (!can(VIEW_PERMISSION[view])) view = "inicio";
   // O filtro aberto por uma recomendação vale só até sair de Produtos.
+  if (view !== "loja") delete $("settings").dataset.dirty;
   if (view !== "produtos") {
     state.productIds = null;
     if (state.bulk) toggleBulk(false);
@@ -2112,15 +2113,8 @@ async function loadStore() {
   renderStoreHeader();
   const s = state.me.store;
   const f = $("settings").elements;
-  f.name.value = s.name;
-  f.description.value = s.description || "";
-  f.whatsapp.value = s.whatsapp || "";
-  f.accent.value = s.accent || "#2563eb";
-  f.pickup_enabled.checked = s.pickup_enabled;
-  f.delivery_on.checked = s.delivery_fee_cents !== null;
-  f.delivery_fee.value = s.delivery_fee_cents === null ? "" : centsToInput(s.delivery_fee_cents);
-  f.free_above.value = centsToInput(s.free_delivery_above_cents);
-  $("delivery-fields").hidden = !f.delivery_on.checked;
+  // Não sobrescreve o que o lojista já começou a digitar enquanto a tela carregava.
+  if (!$("settings").dataset.dirty) fillSettings(s, f);
   const url = `${location.origin}/loja/${s.slug}`;
   $("share-url").value = url;
   $("catalog-pdf").href = `/loja/${s.slug}/catalogo`;
@@ -2342,6 +2336,49 @@ async function savePassword(event) {
   }
 }
 
+function fillSettings(s, f) {
+  f.name.value = s.name;
+  f.description.value = s.description || "";
+  f.whatsapp.value = s.whatsapp || "";
+  f.accent.value = s.accent || "#2563eb";
+  f.pickup_enabled.checked = s.pickup_enabled;
+  f.delivery_on.checked = s.delivery_fee_cents !== null;
+  f.delivery_fee.value = s.delivery_fee_cents === null ? "" : centsToInput(s.delivery_fee_cents);
+  f.free_above.value = centsToInput(s.free_delivery_above_cents);
+  $("delivery-fields").hidden = !f.delivery_on.checked;
+  f.template.value = s.template || "geral";
+  f.announcement.value = s.announcement || "";
+  updateTemplatePreview();
+  renderHoursEditor(s.hours || []);
+}
+
+const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+function renderHoursEditor(hours) {
+  $("hours-editor").replaceChildren(...[1, 2, 3, 4, 5, 6, 0].map((d) => {
+    const slot = hours.find((x) => x.d === d);
+    const open = h("input", { type: "time", value: slot?.open || "09:00", "aria-label": `${WEEKDAYS[d]}: abre às`, "data-open": String(d) });
+    const close = h("input", { type: "time", value: slot?.close || "18:00", "aria-label": `${WEEKDAYS[d]}: fecha às`, "data-close-time": String(d) });
+    const on = h("input", { type: "checkbox", checked: !!slot, "data-day": String(d) });
+    const sync = () => { open.disabled = !on.checked; close.disabled = !on.checked; };
+    on.addEventListener("change", sync);
+    sync();
+    return h("div", { class: "hours-row" }, h("label", { class: "check" }, on, h("span", { text: WEEKDAYS[d] })), open, close);
+  }));
+}
+
+function readHoursEditor() {
+  return [...document.querySelectorAll("#hours-editor [data-day]")].filter((c) => c.checked).map((c) => ({
+    d: Number(c.dataset.day),
+    open: document.querySelector(`#hours-editor [data-open="${c.dataset.day}"]`).value,
+    close: document.querySelector(`#hours-editor [data-close-time="${c.dataset.day}"]`).value,
+  }));
+}
+
+function updateTemplatePreview() {
+  const s = state.me.store;
+  $("template-preview").href = `/loja/${s.slug}?modelo=${encodeURIComponent($("settings").elements.template.value)}`;
+}
+
 async function saveSettings(event) {
   event.preventDefault();
   const button = event.submitter;
@@ -2353,9 +2390,11 @@ async function saveSettings(event) {
     await api("/api/settings", { method: "PATCH", body: {
       name: f.name.value, description: f.description.value, whatsapp: f.whatsapp.value, accent: f.accent.value,
       pickup_enabled: f.pickup_enabled.checked, delivery_fee_cents: fee, free_delivery_above_cents: free,
+      template: f.template.value, announcement: f.announcement.value, hours: readHoursEditor(),
     } });
-    toast("Configurações salvas.");
+    delete $("settings").dataset.dirty;
     await loadStore();
+    toast("Configurações salvas.");
   });
 }
 
@@ -2521,6 +2560,8 @@ $("bulk-all").addEventListener("click", () => {
   }
 });
 $("duplicate-product").addEventListener("click", duplicateProduct);
+$("settings").elements.template.addEventListener("change", updateTemplatePreview);
+$("settings").addEventListener("input", () => { $("settings").dataset.dirty = "1"; });
 $("photos-input").addEventListener("change", (e) => {
   const files = [...e.target.files];
   e.target.value = "";

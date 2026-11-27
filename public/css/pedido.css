@@ -1,0 +1,18 @@
+body { background: var(--bg); }
+.track { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 14px; }
+.track-store { display: flex; align-items: center; gap: 12px; }
+.track-store h1 { margin: 0; font-size: 1.3rem; overflow-wrap: anywhere; }
+.track-logo { width: 52px; height: 52px; border-radius: 14px; flex: none; display: grid; place-items: center; font-weight: 800; color: #fff; background: var(--accent, var(--blue-600)) center/cover no-repeat; }
+.track h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.steps-line { list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.steps-line li { text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); padding-top: 22px; position: relative; }
+.steps-line li::before { content: ""; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #d5deeb; }
+.steps-line li.done { color: var(--ok); }
+.steps-line li.done::before { background: var(--ok); }
+.steps-line.cancelled li { color: var(--danger); }
+.item-line, .totals div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; }
+.item-line span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.totals { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+.totals .total { font-weight: 800; font-size: 1.1rem; }
+.track-actions { display: grid; gap: 8px; }
+.track-privacy { font-size: 13px; text-align: center; }

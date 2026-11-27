@@ -900,6 +900,68 @@ try {
     await panel.getByRole("button", { name: "Concluir seleção" }).click();
   });
 
+  await check("vitrine premium: modelo, aviso, horário, filtros, favoritos, relacionados e acompanhamento", async () => {
+    await panel.goto(url + "/painel#loja");
+    const sf = panel.locator("#settings");
+    await sf.getByLabel("Modelo da vitrine").selectOption("roupas");
+    assert.match(await panel.locator("#template-preview").getAttribute("href"), /\?modelo=roupas$/);
+    await sf.getByLabel("Aviso no topo da vitrine").fill("Frete grátis acima de R$ 150");
+    // Abre todos os dias, o dia inteiro: a vitrine mostra "Aberto agora".
+    for (const box of await panel.locator("#hours-editor [data-day]").all()) await box.check();
+    for (const input of await panel.locator("#hours-editor [data-open]").all()) await input.fill("00:00");
+    for (const input of await panel.locator("#hours-editor [data-close-time]").all()) await input.fill("23:59");
+    await noHorizontalScroll(panel, "aparência e horário");
+    await sf.getByRole("button", { name: "Salvar alterações" }).click();
+    await panel.locator("#toast", { hasText: "Configurações salvas" }).waitFor();
+
+    // Contexto novo: a vitrine pode ficar até 15 s em cache no navegador.
+    const visitorCtx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+    const page = await visitorCtx.newPage();
+    watch(page, "vitrine premium");
+    await page.goto(url + "/loja/moda-da-ana");
+    await page.locator("#announce", { hasText: "Frete grátis acima de R$ 150" }).waitFor();
+    assert.ok(await page.evaluate(() => document.body.classList.contains("tpl-roupas")));
+    await page.locator("#store-hours.open", { hasText: "Aberto agora" }).waitFor();
+    // Favoritos e filtro.
+    await page.locator("#products .product", { hasText: "Vestido Floral" }).getByRole("button", { name: "Favoritar: Vestido Floral" }).click();
+    await page.locator("#quick-filters").getByRole("button", { name: "Favoritos (1)" }).click();
+    assert.equal(await page.locator("#products .product").count(), 1);
+    await page.locator("#quick-filters").getByRole("button", { name: "Favoritos (1)" }).click();
+    // Ordenar pelo menor preço e filtrar por faixa.
+    await page.locator("#sort").selectOption("price-asc");
+    const prices = await page.locator("#products .product:not(.soldout) .price").allTextContents();
+    // Primeiro valor de cada cartão (o preço atual; o antigo vem riscado depois).
+    const cents = prices.map((t) => Number(t.match(/R\$\s?([\d.]+,\d{2})/)[1].replace(/\./g, "").replace(",", ".")));
+    assert.deepEqual([...cents].sort((a, b) => a - b), cents);
+    await page.locator("#price-range").selectOption("20000-");
+    assert.equal(await page.locator("#products .product").count(), 0);
+    await page.locator("#price-range").selectOption("");
+    // Produto relacionado (mesma categoria ou destaque).
+    await page.locator("#products .product", { hasText: "Saia Midi Plissada Azul" }).locator(".product-media").click();
+    await page.locator("#pd-related .related-item").first().waitFor();
+    await noHorizontalScroll(page, "vitrine premium");
+    await shot(page, "22-vitrine-premium-mobile");
+    await page.locator("#product-dialog [data-close]").click();
+    // Prévia de outro modelo sem salvar.
+    await page.goto(url + "/loja/moda-da-ana?modelo=eletronicos");
+    await page.locator("#preview-bar", { hasText: "Prévia do modelo" }).waitFor();
+    assert.ok(await page.evaluate(() => document.body.classList.contains("tpl-eletronicos")));
+    // Acompanhamento do pedido pelo link secreto.
+    const id = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Saia Midi Plissada Azul").id;
+    const order = await page.request.post(`${url}/api/order-request/moda-da-ana`, {
+      headers: { Origin: url, "Content-Type": "application/json" },
+      data: { customer_name: "Bia Rastreio", customer_phone: "54955554444", fulfillment: "pickup", items: [{ id, quantity: 1 }] },
+    }).then((r) => r.json());
+    assert.ok(order.tracking_url, JSON.stringify(order));
+    await page.goto(url + order.tracking_url);
+    await page.locator("#status-label", { hasText: "aguardando confirmação" }).waitFor();
+    assert.match(await page.locator("#order-code").textContent(), /Bia$/);
+    assert.ok(!(await page.content()).includes("54955554444"));
+    await noHorizontalScroll(page, "acompanhamento");
+    await shot(page, "23-acompanhamento-mobile");
+    await visitorCtx.close();
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();
