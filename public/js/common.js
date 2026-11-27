@@ -1,9 +1,10 @@
 // Funções compartilhadas pelo painel e pela vitrine.
 
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, data = null) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -28,7 +29,7 @@ export async function api(path, { method = "GET", body, blob } = {}) {
   } catch {
     /* resposta sem JSON */
   }
-  if (!response.ok) throw new ApiError(response.status, data?.error || "Não foi possível concluir a operação.");
+  if (!response.ok) throw new ApiError(response.status, data?.error || "Não foi possível concluir a operação.", data);
   return data;
 }
 

@@ -379,3 +379,18 @@
 .restock-item small { display: block; color: var(--muted); }
 .restock-item input { width: 100%; min-height: 40px; text-align: center; border: 1px solid #cdd7e6; border-radius: var(--radius-sm); font: inherit; }
 .supplier-form { margin: 10px 0; }
+
+/* Cadastro: massa, importação e câmera */
+.bulk-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; background: #fff; border: 1px solid var(--blue-600); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.bulk-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; flex: 1 1 260px; min-width: 0; }
+.bulk-form .field { margin: 0; flex: 1 1 140px; min-width: 0; }
+.product-item.selectable { cursor: pointer; }
+.product-item.selectable input[type=checkbox] { width: 22px; height: 22px; flex: none; accent-color: var(--blue-600); }
+.product-item.selected { border-color: var(--blue-600); box-shadow: inset 0 0 0 1px var(--blue-600); }
+.input-with-btn { display: flex; gap: 6px; }
+.input-with-btn input { flex: 1; min-width: 0; }
+.sale-search-row { display: flex; gap: 8px; align-items: stretch; }
+.sale-search-row .search { flex: 1; min-width: 0; margin-bottom: 8px; }
+.sale-search-row .scan-btn { margin-bottom: 8px; }
+.scan-video { width: 100%; max-height: 50vh; background: #000; border-radius: var(--radius-sm); }
+.import-errors { margin: 8px 0 0; padding-left: 18px; color: var(--danger); font-size: 14px; }
