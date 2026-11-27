@@ -44,11 +44,11 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 7, 8 e 9 parciais. Versão 1.1.0-beta: IA com Workers AI, variações,
+Fase 1 concluída. Fases 2, 3, 5, 6, 7, 8 e 9 parciais. Versão 1.2.0-beta: IA com Workers AI, variações,
 equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
 avisos de pedidos, nova landing, cupons, PWA, monitoramento de erros, entrega e
 retirada, ordem da vitrine, impressão de pedidos, verificação em duas etapas,
-ordem das categorias, catálogo em PDF e planos com Mercado Pago (cobrança desligada). Detalhes e
+ordem das categorias, catálogo em PDF e planos com Mercado Pago (cobrança desligada) e carrinho abandonado com consentimento. Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades
@@ -62,5 +62,6 @@ próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 - PWA: `public/sw.js` usa rede primeiro e só guarda o painel e seus arquivos; ao mudar a lista de arquivos, troque o nome do cache (`def-painel-vN`).
 - IA (`src/lib/ai.js`, `src/routes/ai.js`): toda resposta do modelo passa por `cleanProductSuggestion`/limites de tamanho e é só sugestão; nunca grave produto ou preço direto da IA. Cada chamada consome `consumeQuota` antes de chamar o modelo. Testes usam `fakeAI` (modelo simulado).
 - Pagamentos (`src/lib/billing.js`, `src/routes/billing.js`): só com `BILLING_ENABLED="true"` + `MP_ACCESS_TOKEN`. O webhook nunca confia no corpo: consulta o recurso na API. Limites de plano via `assertWithinLimit`/`effectivePlan` (carência de 7 dias). Testes usam `MP_FETCH` simulado.
+- Carrinho abandonado (`src/routes/carts.js`): só grava com `consent: true`; chave `(store_id, id)` com id gerado no navegador; `markCartOrdered` apaga ao virar pedido. Nunca guarde carrinho sem consentimento.
 - `test/helpers/env.js` implementa o subconjunto da API do D1 usado pelo código. Se
   passar a usar outro método do D1, implemente-o lá também.

@@ -61,7 +61,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Atalho de WhatsApp para o cliente em cada pedido e no CRM
 - ✅ Compartilhamento do catálogo pelo WhatsApp
 - ⛔ Notificações automáticas e atendimento automatizado (exigem WhatsApp Business Cloud API)
-- ⬜ Recuperação de carrinho abandonado com consentimento
+- ✅ Recuperação de carrinho abandonado com consentimento (contato manual pelo WhatsApp; envio automático depende da API oficial)
 
 ## Fase 6 — Super administrador 🟡
 
