@@ -54,3 +54,7 @@ jobs:
         run: |
           sleep 5
           curl -fsS https://def-commerce.detauffer.workers.dev/api/health
+      # Cadastro, login, banco, foto no R2, vitrine e pedido com uma loja de
+      # teste temporária, que é excluída no final.
+      - name: Teste de fumaça em produção
+        run: node scripts/smoke.mjs https://def-commerce.detauffer.workers.dev
