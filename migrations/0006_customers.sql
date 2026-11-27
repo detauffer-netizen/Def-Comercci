@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''; ALTER TABLE orders ADD COLUMN customer_phone TEXT NOT NULL DEFAULT ''; CREATE INDEX IF NOT EXISTS orders_customer ON orders(store_id,customer_phone);
