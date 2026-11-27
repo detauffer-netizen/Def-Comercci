@@ -2,6 +2,17 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.7.0] — 2026-11-27 — Entrega e retirada, ordem da vitrine e impressão
+
+### Adicionado
+- **Entrega e retirada**: em "Minha loja", o lojista ativa a retirada na loja e/ou a entrega com taxa e frete grátis a partir de um valor. No carrinho, o cliente escolhe como quer receber; na entrega, o endereço é obrigatório. A taxa é calculada no servidor (o frete grátis considera o valor já com desconto) e aparece na mensagem do WhatsApp e no pedido. Sem opções ativas, tudo continua "a combinar", como antes.
+- **Ordem dos produtos na vitrine**: campo "Ordem na vitrine" no produto; destaques continuam no topo.
+- **Impressão do pedido**: botão "Imprimir" em cada pedido imprime só aquele pedido, com o nome da loja.
+- Migração 0011; 7 testes de API novos (87 no total) e 1 fluxo E2E novo (25 verificações).
+
+### Corrigido
+- Mensagens de erro do checkout da vitrine apareciam sem destaque.
+
 ## [0.6.0] — 2026-11-27 — Cupons, painel instalável e monitoramento de erros
 
 ### Adicionado

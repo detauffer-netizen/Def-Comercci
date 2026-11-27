@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 80 testes de API/integração + 24 verificações E2E em navegador
+- ✅ 87 testes de API/integração + 25 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -22,6 +22,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Compartilhamento da vitrine e de produtos (link direto `#p-<id>`)
 - ✅ Bucket R2 `def-commerce-images` criado e ligado ao Worker (binding `IMAGES`)
 - ✅ Variações (tamanho/cor/modelo) com SKU, preço e estoque próprios; gerador de combinações; estoque do produto = soma das variações; gatilhos de pedido atualizados
+- ✅ Ordem manual dos produtos na vitrine (destaques sempre no topo)
 - ⬜ Reordenar fotos; categorias gerenciadas com ordem e imagem
 - ⬜ Catálogo em PDF / página de catálogo para impressão
 
@@ -51,6 +52,8 @@ Cloudflare, sem chave extra) para texto e visão, ou a API da Anthropic.
 ## Fase 5 — WhatsApp e automações 🟡
 
 - ✅ Checkout pelo WhatsApp com resumo e código do pedido
+- ✅ Entrega ou retirada no checkout: taxa de entrega, frete grátis a partir de um valor (já com desconto) e endereço no pedido
+- ✅ Impressão do pedido pelo painel
 - ✅ Atalho de WhatsApp para o cliente em cada pedido e no CRM
 - ✅ Compartilhamento do catálogo pelo WhatsApp
 - ⛔ Notificações automáticas e atendimento automatizado (exigem WhatsApp Business Cloud API)
