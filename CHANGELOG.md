@@ -2,6 +2,21 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.10.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 7: Divulgação
+
+### Adicionado
+- **Menu Divulgação** no painel (permissão de produtos), reunindo arte de oferta, QR Codes e o assistente de textos com IA (que saiu de "Minha loja").
+- **Arte de oferta** gerada no próprio navegador (sem custo): escolha o produto, o formato — **Feed 4:5 (1080 × 1350)**, **Status 9:16 (1080 × 1920)** ou **Quadrado (1080 × 1080)** — e o estilo (Oferta, Novidade, Minimalista). Usa a foto, o nome, o preço e a cor da loja; "de/por" e o selo de desconto só aparecem quando há promoção cadastrada. Chamada e texto do botão editáveis, QR Code do produto opcional. Baixar em PNG ou compartilhar direto (celulares compatíveis).
+- **QR Codes** da vitrine, de um produto ou de uma categoria: prévia, download em PNG (1024 px) e **cartaz para imprimir** ("Aponte a câmera do celular...").
+- A vitrine abre direto numa categoria com `?categoria=` (links de QR Code e campanhas).
+
+### Corrigido
+- O editor de horário em "Minha loja" já aparece antes de a tela carregar, evitando que a página "pule" enquanto o lojista usa o formulário.
+
+### Técnico
+- `public/js/qrcode.js`: gerador de QR Code (ISO/IEC 18004, modo byte, correção M, versões 1–20) sem dependências, validado nos testes por um decodificador independente (`jsqr`, só em desenvolvimento). Cache do painel `def-painel-v4`.
+- 2 testes novos (162 no total) e 1 fluxo E2E novo (36 verificações; a checagem de 320 px inclui Divulgação).
+
 ## [1.9.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 6: vitrine premium
 
 ### Adicionado
