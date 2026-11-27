@@ -18,12 +18,11 @@ database_name = "def-commerce-db"
 database_id = "0c35664f-97c3-4687-9861-0f1a7115207f"
 migrations_dir = "migrations"
 
-# Imagens de produtos, logotipos e banners.
-# Ative depois de criar o bucket:  npx wrangler r2 bucket create def-commerce-images
+# Imagens de produtos, logotipos e banners (bucket criado em 27/11/2026).
 # Sem este binding, o restante da plataforma funciona e o upload responde 503.
-# [[r2_buckets]]
-# binding = "IMAGES"
-# bucket_name = "def-commerce-images"
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "def-commerce-images"
 
 [observability]
 enabled = true

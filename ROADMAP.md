@@ -20,7 +20,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ SKU, preço promocional, destaque, visibilidade, descrição, categorias livres
 - ✅ Identidade visual por loja (cor, logotipo, banner, descrição)
 - ✅ Compartilhamento da vitrine e de produtos (link direto `#p-<id>`)
-- ⛔ Bucket R2 `def-commerce-images` (criar e ativar no `wrangler.toml`)
+- ✅ Bucket R2 `def-commerce-images` criado e ligado ao Worker (binding `IMAGES`)
 - ⬜ Variações (tamanho/cor/modelo) com SKU e estoque próprios — exige nova tabela e ajuste dos gatilhos de estoque
 - ⬜ Reordenar fotos; categorias gerenciadas com ordem e imagem
 - ⬜ Catálogo em PDF / página de catálogo para impressão
@@ -84,7 +84,7 @@ Preços e provedor de pagamento dependem do proprietário.
 
 1. **Acesso de escrita ao GitHub** para esta automação: instalar o Claude GitHub App no repositório.
 2. **Publicação na Cloudflare:** um token de API (Workers + D1 + R2, somente esta conta) como segredo `CLOUDFLARE_API_TOKEN` do GitHub, ou publicar localmente com `npm run deploy`.
-3. **Autorizar a criação do bucket R2** `def-commerce-images` (camada gratuita de 10 GB).
+3. ~~Bucket R2~~ — criado em 27/11/2026.
 4. **Provedor de e-mail** para recuperação de senha e notificações.
 5. **Provedor de IA** (Workers AI ou Anthropic) e orçamento de uso.
 6. **WhatsApp Business Cloud API** (conta Meta verificada) para automações.

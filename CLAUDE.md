@@ -13,7 +13,7 @@ Brasil. Identidade: azul (`#2563eb`, navy `#0b1f3a`) e laranja (`#ff7a00`).
 
 - Conta Cloudflare: a que hospeda `def-commerce.detauffer.workers.dev`. A conta tem outros
   projetos (ex.: buckets `app-social-resumo-arquivos`, `social-em-resumo-teste-pdfs`): **não altere nada fora do Def Commerce.**
-- Worker `def-commerce` · D1 `def-commerce-db` (`0c35664f-97c3-4687-9861-0f1a7115207f`) · R2 planejado `def-commerce-images`.
+- Worker `def-commerce` · D1 `def-commerce-db` (`0c35664f-97c3-4687-9861-0f1a7115207f`) · R2 `def-commerce-images` (binding `IMAGES`).
 - Repositório: `detauffer-netizen/Def-Comercci`.
 
 ## Comandos
