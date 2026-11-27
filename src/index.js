@@ -41,6 +41,7 @@ const ROUTES = [
   ["GET", "/api/stock-movements", panel.stockMovements, "products"],
   ["GET", "/api/orders", panel.listOrders, "orders"],
   ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
+  ["GET", "/api/notifications", panel.notifications, "orders"],
   ["GET", "/api/customers", panel.listCustomers, "customers"],
   ["DELETE", "/api/customers/:phone", privacy.forgetCustomer, "customers"],
   ["GET", "/api/metrics", panel.metrics, "reports"],
@@ -158,9 +159,9 @@ export default {
     if (path === "/") return asset(env, request, "/index.html");
     if (path === "/painel" || path === "/painel/") return asset(env, request, "/painel.html");
     if (path === "/admin" || path === "/admin/") return asset(env, request, "/admin.html");
-    const shop = path.match(/^\/loja\/([a-z0-9-]{3,60})\/?$/);
+    const shop = path.match(/^\/loja\/([a-z0-9-]{3,60})(?:\/p\/([0-9a-f-]{36}))?\/?$/);
     if (shop) {
-      const { html, status } = await storefrontPage(env, request, shop[1]);
+      const { html, status } = await storefrontPage(env, request, shop[1], shop[2] || null);
       return withHeaders(new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } }));
     }
     if (path === "/privacidade") return asset(env, request, "/privacidade.html");

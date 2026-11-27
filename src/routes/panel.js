@@ -353,3 +353,21 @@ export async function auditLog(request, env, session) {
   ).bind(session.store.id).all();
   return json(rows.results);
 }
+
+// Consulta leve usada pelo painel a cada 30 s para avisar de pedidos novos.
+// "since" é o "now" devolvido na consulta anterior (horário do banco). Usa >=
+// para não perder pedidos criados no mesmo segundo; o painel ignora repetidos.
+export async function notifications(request, env, session) {
+  const since = new URL(request.url).searchParams.get("since") || "";
+  if (since && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(since)) throw new HttpError(400, "Parâmetro inválido");
+  const db = env.DB;
+  const now = (await db.prepare("SELECT CURRENT_TIMESTAMP AS now").first()).now;
+  const pending = (await db.prepare("SELECT COUNT(*) AS n FROM orders WHERE store_id=? AND status='pending'").bind(session.store.id).first()).n;
+  const fresh = since
+    ? (await db.prepare(
+      `SELECT id,total_cents,customer_name,created_at FROM orders
+        WHERE store_id=? AND created_at >= ? ORDER BY created_at DESC LIMIT 20`,
+    ).bind(session.store.id, since).all()).results
+    : [];
+  return json({ now, pending, new_orders: fresh.map((o) => ({ ...o, code: o.id.slice(0, 8).toUpperCase() })) });
+}
