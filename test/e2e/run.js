@@ -9,6 +9,7 @@ import { mkdirSync } from "node:fs";
 import assert from "node:assert/strict";
 import { startServer } from "./server.js";
 import { hashPassword } from "../../src/lib/crypto.js";
+import { currentStep, totpAt } from "../../src/lib/totp.js";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -542,6 +543,40 @@ try {
     assert.equal(await panel.locator("#customer-list .row", { hasText: "Carlos" }).count(), 0);
     await panel.goto(url + "/painel#pedidos");
     await panel.locator(".order", { hasText: "Cliente removido" }).waitFor();
+  });
+
+  await check("verificação em duas etapas: ativar no painel e entrar com o código", async () => {
+    await panel.goto(url + "/painel#inicio");
+    await panel.getByRole("button", { name: "Alterar senha" }).click();
+    const dialog = panel.locator("#password-dialog");
+    const box = dialog.locator("#tfa-box");
+    await box.getByLabel("Sua senha").fill("senha-forte-123");
+    await box.getByRole("button", { name: "Ativar verificação em duas etapas" }).click();
+    const secret = (await box.locator(".tfa-secret").textContent()).replace(/\s/g, "");
+    await box.getByLabel("Código do aplicativo").fill(await totpAt(secret, currentStep()));
+    await box.getByRole("button", { name: "Confirmar e ativar" }).click();
+    await box.locator(".tfa-codes li").first().waitFor();
+    assert.equal(await box.locator(".tfa-codes li").count(), 8);
+    await noDialogOverflow(dialog, "2FA");
+    await shot(panel, "16-2fa-mobile");
+    await box.getByRole("button", { name: "Concluído" }).click();
+    await box.locator(".tfa-on").waitFor();
+    await panel.locator("#password-close").click();
+
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+    const page = await ctx.newPage();
+    watch(page, "2fa");
+    await page.goto(url + "/painel");
+    await page.locator("#login").getByLabel("E-mail").fill("ana@exemplo.com.br");
+    await page.locator("#login").getByLabel("Senha").fill("senha-forte-123");
+    await page.locator("#login").getByRole("button", { name: "Entrar no painel" }).click();
+    const step2 = page.locator("#login-2fa");
+    await step2.waitFor();
+    await step2.getByLabel("Código").fill(await totpAt(secret, currentStep() + 1));
+    await step2.getByRole("button", { name: "Confirmar" }).click();
+    await page.locator("#app").waitFor();
+    assert.equal(await page.locator("#store-name").textContent(), "Moda da Ana");
+    await ctx.close();
   });
 
   await check("logout encerra a sessão", async () => {

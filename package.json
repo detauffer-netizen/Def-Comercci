@@ -1,6 +1,6 @@
 {
   "name": "def-commerce",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "description": "Plataforma SaaS multiempresa de catálogos digitais com pedidos pelo WhatsApp (Cloudflare Workers + D1 + R2).",

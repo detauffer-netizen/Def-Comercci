@@ -239,6 +239,20 @@ export async function uploadProductImage(request, env, session, params) {
   return json({ id: imageId, url: imageUrl(key) }, 201);
 }
 
+// Define a ordem das fotos; a primeira é a capa.
+export async function reorderProductImages(request, env, session, params) {
+  const productId = v.id(params.id);
+  const ids = (await readJson(request)).ids;
+  const current = (await env.DB.prepare("SELECT id FROM product_images WHERE product_id=? AND store_id=?").bind(productId, session.store.id).all())
+    .results.map((r) => r.id);
+  if (!Array.isArray(ids) || ids.length !== current.length || new Set(ids).size !== ids.length || ids.some((x) => !current.includes(x))) {
+    throw new HttpError(400, "Envie todas as fotos do produto, cada uma uma vez");
+  }
+  await env.DB.batch(ids.map((id, position) =>
+    env.DB.prepare("UPDATE product_images SET position=? WHERE id=? AND product_id=? AND store_id=?").bind(position, id, productId, session.store.id)));
+  return json({ ok: true });
+}
+
 export async function deleteProductImage(request, env, session, params) {
   const productId = v.id(params.id);
   const imageId = v.id(params.imageId);

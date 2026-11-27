@@ -45,7 +45,7 @@ banco. O navegador nunca escolhe a loja. Arquivos no R2 ficam em
 Requisitos: Node.js 22.5 ou mais recente.
 
 ```bash
-npm test             # testes de API e integração (87 testes, D1 simulado com SQLite real)
+npm test             # testes de API e integração (96 testes, D1 simulado com SQLite real)
 npm run check        # sintaxe dos scripts e conformidade com a CSP
 npm run test:e2e     # navegador real: cadastro → produto → vitrine → pedido → confirmação
 node test/e2e/server.js   # sobe o sistema localmente em http://localhost:8787

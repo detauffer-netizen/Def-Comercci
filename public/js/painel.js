@@ -1,6 +1,7 @@
 import {
   ApiError, api, centsToInput, compressImage, downloadCsv, formatDate, formatPhone, h, icon, money, parseMoney, toast, whatsappLink,
 } from "./common.js";
+import { mountTwoFactor } from "./twofactor.js";
 
 const $ = (id) => document.getElementById(id);
 const state = { me: null, products: [], orders: [], metrics: null, orderStatus: "", editing: null, pendingFiles: [] };
@@ -50,7 +51,10 @@ function showAuth(message) {
   if (location.hash === "#cadastro") selectTab("register");
 }
 
+let loginChallenge = "";
+
 function selectTab(which) {
+  $("login-2fa").hidden = true;
   for (const name of ["login", "register"]) {
     $(`tab-${name}`).setAttribute("aria-selected", String(name === which));
     $(name).hidden = name !== which;
@@ -517,12 +521,25 @@ function openProduct(product) {
 function renderImages() {
   const p = state.editing;
   const saved = p ? p.images : [];
-  const figures = saved.map((img) => h("figure", { style: { backgroundImage: `url("${img.url}")` } },
-    h("button", { type: "button", "aria-label": "Remover foto", onclick: () => removeImage(img) }, icon("x", "icon icon-sm"))));
+  const figures = saved.map((img, i) => h("figure", { style: { backgroundImage: `url("${img.url}")` } },
+    h("button", { type: "button", "aria-label": "Remover foto", onclick: () => removeImage(img) }, icon("x", "icon icon-sm")),
+    i > 0 ? h("button", { type: "button", class: "cover-btn", "aria-label": "Usar como capa", title: "Usar como capa", onclick: () => makeCover(img) }, icon("star", "icon icon-sm")) : null));
   const pending = state.pendingFiles.map((file, i) => h("figure", { class: "uploading", style: { backgroundImage: `url("${file.preview}")` } },
     h("button", { type: "button", "aria-label": "Remover foto", onclick: () => { URL.revokeObjectURL(file.preview); state.pendingFiles.splice(i, 1); renderImages(); } }, icon("x", "icon icon-sm"))));
   $("image-grid").replaceChildren(...figures, ...pending);
   $("image-add").hidden = saved.length + state.pendingFiles.length >= 8;
+}
+
+async function makeCover(img) {
+  const p = state.editing;
+  const ids = [img.id, ...p.images.filter((x) => x.id !== img.id).map((x) => x.id)];
+  await busy(null, async () => {
+    await api(`/api/products/${p.id}/images/order`, { method: "PUT", body: { ids } });
+    p.images = ids.map((id) => p.images.find((x) => x.id === id));
+    renderImages();
+    toast("Capa atualizada.");
+    loadProducts();
+  });
 }
 
 async function removeImage(img) {
@@ -939,7 +956,9 @@ function openPassword(forced = false) {
   $("password-error").hidden = true;
   $("password-intro").hidden = !forced;
   $("password-close").hidden = forced;
-  $("password-title").textContent = forced ? "Crie sua senha" : "Alterar senha";
+  $("tfa-section").hidden = forced;
+  if (!forced) mountTwoFactor($("tfa-box"));
+  $("password-title").textContent = forced ? "Crie sua senha" : "Senha e segurança";
   dialog.dataset.forced = forced ? "1" : "";
   dialog.showModal();
 }
@@ -1022,7 +1041,57 @@ async function loadAudit() {
 
 $("tab-login").addEventListener("click", () => selectTab("login"));
 $("tab-register").addEventListener("click", () => selectTab("register"));
-authForm($("login"), "/api/login");
+$("login").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const err = $("auth-error");
+  const button = form.querySelector("button");
+  button.disabled = true;
+  try {
+    const result = await api("/api/login", { method: "POST", body: Object.fromEntries(new FormData(form)) });
+    if (result.two_factor_required) {
+      loginChallenge = result.challenge;
+      form.hidden = true;
+      $("login-2fa").hidden = false;
+      err.hidden = true;
+      $("login-2fa").elements.code.focus();
+      return;
+    }
+    form.reset();
+    await start();
+  } catch (error) {
+    err.textContent = error.message;
+    err.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});
+$("login-2fa").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const err = $("auth-error");
+  const button = event.target.querySelector("button");
+  button.disabled = true;
+  try {
+    await api("/api/login/2fa", { method: "POST", body: { challenge: loginChallenge, code: event.target.elements.code.value } });
+    event.target.reset();
+    $("login").reset();
+    $("login-2fa").hidden = true;
+    $("login").hidden = false;
+    await start();
+  } catch (error) {
+    err.textContent = error.message;
+    err.hidden = false;
+    if (error.status === 401) $("login-2fa-back").click();
+  } finally {
+    button.disabled = false;
+  }
+});
+$("login-2fa-back").addEventListener("click", () => {
+  loginChallenge = "";
+  $("login-2fa").reset();
+  $("login-2fa").hidden = true;
+  $("login").hidden = false;
+});
 authForm($("register"), "/api/register", (data) => {
   data.slug = String(data.slug || "").trim().toLowerCase();
   if (!data.terms) return "Para criar a loja, aceite o tratamento dos dados.";

@@ -13,6 +13,7 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 | Super administrador | Tabela própria (`platform_admins`) e rotas `/api/admin/*` isoladas; administradores não acessam lojas e lojistas não acessam a administração; suspensões exigem motivo e ficam auditadas |
 | Acesso a dados de outra loja | `store_id` sempre vem da sessão no servidor; testes de isolamento para produtos, pedidos, clientes, métricas e imagens |
 | Senhas | PBKDF2-SHA256, 100.000 iterações (máximo do runtime), salt aleatório de 128 bits por usuário; formato versionado com migração automática do formato antigo; comparação em tempo constante; derivação executada mesmo para e-mail inexistente |
+| Verificação em duas etapas | TOTP (RFC 6238) opcional para qualquer conta; senha correta gera só um desafio de 5 min (máx. 5 tentativas, hash no banco); código reutilizado é recusado; 8 códigos de recuperação de uso único guardados como hash; ativar encerra as outras sessões |
 | Sessões | Token aleatório de 256 bits; só o hash SHA-256 fica no banco; cookie `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`; expiração de 7 dias; logout invalida no servidor; limpeza periódica |
 | CSRF | Escritas exigem cabeçalho `Origin` igual ao do site e corpo `application/json` (ou imagem), que formulários de outros sites não conseguem enviar; cookie `SameSite=Strict` |
 | Força bruta e abuso | Limites por IP (cadastro 5/10 min, login 20/10 min, pedidos 20/10 min) e por conta (login 10/10 min); chaves guardadas como hash |
@@ -43,5 +44,4 @@ segredos do Worker e segredos do GitHub Actions para a publicação. Veja `.env.
 ## Pendências de segurança conhecidas
 
 - Recuperação de senha por e-mail (depende de provedor de e-mail).
-- Autenticação em dois fatores para o painel e para o super administrador.
 - Webhooks de pagamento autenticados e idempotentes (Fase 7).

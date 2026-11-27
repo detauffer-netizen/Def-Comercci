@@ -2,6 +2,16 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.8.0] — 2026-11-27 — Verificação em duas etapas e capa das fotos
+
+### Adicionado
+- **Verificação em duas etapas (2FA)** para lojistas, equipe e super administradores, com aplicativo autenticador (TOTP, RFC 6238): ativação com senha e código, 8 códigos de recuperação de uso único, login em duas etapas (senha correta não cria sessão sem o código), desafio de login de 5 minutos com no máximo 5 tentativas, recusa de código já usado, e encerramento das outras sessões ao ativar.
+- **Capa do produto**: botão "Usar como capa" nas fotos do produto.
+- Migração 0012; 9 testes de API novos (96 no total) e 1 fluxo E2E novo (26 verificações).
+
+### Segurança
+- Campos do 2FA usam o rótulo visível como nome acessível.
+
 ## [0.7.0] — 2026-11-27 — Entrega e retirada, ordem da vitrine e impressão
 
 ### Adicionado

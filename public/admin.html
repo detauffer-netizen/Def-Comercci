@@ -31,6 +31,12 @@
     <button class="btn btn-blue btn-block">Entrar</button>
     <p id="login-error" class="form-error" role="alert" hidden></p>
   </form>
+  <form id="login-2fa" class="card" hidden novalidate>
+    <span class="brand"><span class="brand-mark">D</span>Def Commerce · Administração</span>
+    <h1>Código de verificação</h1>
+    <label class="field"><span>Código do aplicativo ou de recuperação</span><input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" required></label>
+    <button class="btn btn-blue btn-block">Confirmar</button>
+  </form>
 </main>
 
 <div id="app" hidden>
@@ -91,6 +97,7 @@
     </div>
     <div class="dialog-foot"><button class="btn btn-blue">Salvar</button></div>
   </form>
+  <section class="dialog-body tfa-section"><h3>Verificação em duas etapas</h3><div id="tfa-box"></div></section>
 </dialog>
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

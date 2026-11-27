@@ -88,6 +88,10 @@ export async function removeMember(request, env, session, params) {
   ]);
   // Remove a conta se ela não pertence a mais nenhuma loja nem à administração.
   await db.prepare(
+    `DELETE FROM login_challenges WHERE user_id=? AND NOT EXISTS (SELECT 1 FROM memberships WHERE user_id=?)
+        AND NOT EXISTS (SELECT 1 FROM platform_admins WHERE user_id=?)`,
+  ).bind(id, id, id).run();
+  await db.prepare(
     `DELETE FROM users WHERE id=? AND NOT EXISTS (SELECT 1 FROM memberships WHERE user_id=?)
         AND NOT EXISTS (SELECT 1 FROM platform_admins WHERE user_id=?)`,
   ).bind(id, id, id).run();

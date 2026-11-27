@@ -4,6 +4,7 @@ import { HttpError, json, readJson } from "../lib/http.js";
 import { hashPassword, needsRehash, verifyPassword } from "../lib/crypto.js";
 import { audit, clearSessionCookie, createSession, rateLimit, rateLimitByIp } from "../lib/session.js";
 import * as v from "../lib/validate.js";
+import { createChallenge } from "./twofactor.js";
 
 export async function register(request, env) {
   const db = env.DB;
@@ -39,13 +40,15 @@ export async function login(request, env) {
   // Limite também por conta, contra tentativas distribuídas em vários IPs.
   await rateLimit(db, "login-account", email, 10);
   const user = password.length <= 128
-    ? await db.prepare("SELECT id,password_hash FROM users WHERE email=?").bind(email).first()
+    ? await db.prepare("SELECT id,password_hash,totp_enabled FROM users WHERE email=?").bind(email).first()
     : null;
   const ok = await verifyPassword(password.slice(0, 128), user?.password_hash);
   if (!user || !ok) throw new HttpError(401, "E-mail ou senha incorretos");
   if (needsRehash(user.password_hash)) {
     await db.prepare("UPDATE users SET password_hash=? WHERE id=?").bind(await hashPassword(password), user.id).run();
   }
+  // Com 2FA ativo, a senha só libera a segunda etapa (nenhuma sessão ainda).
+  if (user.totp_enabled) return json({ two_factor_required: true, challenge: await createChallenge(db, user.id) });
   const cookie = await createSession(db, user.id);
   await audit(db, { userId: user.id, action: "user.login" });
   return json({ ok: true }, 200, { "Set-Cookie": cookie });
