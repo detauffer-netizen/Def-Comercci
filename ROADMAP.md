@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 55 testes de API/integração + 15 verificações E2E em navegador
+- ✅ 65 testes de API/integração + 20 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -35,7 +35,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Troca de senha pelo próprio usuário (encerra as outras sessões)
 - ⛔ Recuperação de senha por e-mail (precisa de provedor de e-mail)
 - ⬜ Notificações de novos pedidos (no painel e por e-mail/push)
-- ⬜ Relatórios por período e gráficos
+- ✅ Relatórios por período (7/30/90 dias): vendas por dia em gráfico com dica (mouse, toque e teclado) e tabela, comparação com o período anterior, mais vendidos
 
 ## Fase 4 — Inteligência artificial ⛔
 
@@ -76,7 +76,8 @@ Preços e provedor de pagamento dependem do proprietário.
 - ✅ Ver `SECURITY.md` (isolamento, senhas, sessões, CSRF, XSS, SQLi, uploads, rate limit, auditoria)
 - ✅ Testes unitários, de integração, E2E, responsividade (375 px e 1366 px) e isolamento entre lojas
 - ✅ CI no GitHub Actions
-- ⬜ Política de privacidade, termos de uso, exportação/exclusão de dados (LGPD)
+- ✅ Política de Privacidade e Termos de Uso publicados (`/privacidade`, `/termos`) — ⛔ revisão jurídica e dados do controlador/encarregado pendentes
+- ✅ LGPD: exportação de todos os dados da loja (JSON), exclusão definitiva da loja (com imagens e equipe) e anonimização de compradores
 - ⬜ 2FA; monitoramento de erros com alertas
 
 ## Fase 9 — Design e experiência 🟡
@@ -84,7 +85,8 @@ Preços e provedor de pagamento dependem do proprietário.
 - ✅ Design system (tokens, botões, formulários, ícones vetoriais), painel e vitrine redesenhados
 - ✅ Estados de carregamento, vazio e erro; mensagens claras em português; acessibilidade básica (rótulos, foco, contraste, `prefers-reduced-motion`)
 - ⬜ Nova landing page orientada à conversão (a atual foi mantida, com CTA para o cadastro real)
-- ⬜ SEO técnico da vitrine (renderização no servidor, Open Graph por loja e produto, sitemap)
+- ✅ SEO da vitrine: título, descrição, Open Graph, canonical e dados estruturados por loja gerados no servidor; 404 real para lojas inexistentes; `sitemap.xml` e `robots.txt` dinâmicos
+- ⬜ Página própria por produto (hoje o link de produto usa `#p-<id>`)
 
 ## Pendências reais (dependem do proprietário)
 
@@ -95,3 +97,4 @@ Preços e provedor de pagamento dependem do proprietário.
 5. **Provedor de IA** (Workers AI ou Anthropic) e orçamento de uso.
 6. **WhatsApp Business Cloud API** (conta Meta verificada) para automações.
 7. **Provedor de pagamentos e preços dos planos.**
+8. **Dados jurídicos:** razão social/CNPJ, e-mail do encarregado (DPO) e revisão das páginas de Privacidade e Termos por um advogado.

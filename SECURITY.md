@@ -31,7 +31,9 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 - Dados pessoais tratados: e-mail do lojista; nome, telefone e observações do comprador (informados por ele no pedido, com aviso de finalidade na tela).
 - O lojista concorda com o tratamento ao criar a loja.
 - IPs não são armazenados em texto claro (apenas hashes temporários para limitação de abuso, apagados em até 20 minutos).
-- Pendentes: política de privacidade e termos publicados, exportação e exclusão de dados a pedido do titular, prazo de retenção de pedidos (ver `ROADMAP.md`).
+- Política de Privacidade (`/privacidade`) e Termos de Uso (`/termos`) publicados; o cadastro do lojista exige o aceite.
+- Direitos do titular: o lojista exporta todos os dados da loja e pode excluí-la definitivamente (exige senha e o endereço da loja); o lojista anonimiza compradores a pedido deles.
+- Pendentes: identificação do controlador e canal do encarregado (DPO), revisão jurídica dos textos e prazo de retenção de pedidos.
 
 ## Segredos
 
