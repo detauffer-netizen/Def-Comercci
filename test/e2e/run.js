@@ -61,12 +61,15 @@ try {
 
   await check("landing carrega sem erros e leva ao cadastro", async () => {
     await panel.goto(url + "/");
-    await panel.getByRole("button", { name: "Catálogo", exact: true }).click();
-    await panel.locator("#products button").first().click();
-    await panel.getByRole("button", { name: "Início", exact: true }).click();
+    await panel.getByRole("heading", { level: 1, name: /Sua loja no celular do cliente/ }).waitFor();
+    // Menu do celular abre, leva à seção e fecha.
+    await panel.getByRole("button", { name: "Abrir menu" }).click();
+    await panel.locator("#site-nav").getByRole("link", { name: "Dúvidas" }).click();
+    assert.equal(await panel.getByRole("button", { name: "Abrir menu" }).getAttribute("aria-expanded"), "false");
+    await panel.locator("#duvidas summary", { hasText: "Como recebo o pagamento?" }).click();
     await noHorizontalScroll(panel, "landing");
     await shot(panel, "01-landing-mobile");
-    await panel.getByRole("link", { name: "Criar minha loja grátis" }).first().click();
+    await panel.getByRole("link", { name: /Criar minha loja grátis/ }).first().click();
     await panel.waitForURL(/\/painel#cadastro$/);
   });
 
@@ -340,6 +343,46 @@ try {
     await merchantAdmin.locator("#login-view").waitFor();
     await merchantAdmin.close();
     await adminCtx.close();
+  });
+
+  await check("página própria do produto: link compartilhado abre o produto com título e prévia", async () => {
+    const id = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Vestido Floral").id;
+    const res = await panel.request.get(`${url}/loja/moda-da-ana/p/${id}`);
+    assert.equal(res.status(), 200);
+    assert.match(await res.text(), /<meta property="og:type" content="product">/);
+    const page = await mobile.newPage();
+    watch(page, "produto");
+    await page.goto(`${url}/loja/moda-da-ana/p/${id}`);
+    await page.locator("#product-dialog #pd-name", { hasText: "Vestido Floral" }).waitFor();
+    assert.match(await page.title(), /Vestido Floral/);
+    await page.locator("#product-dialog [data-close]").click();
+    await page.waitForURL(/\/loja\/moda-da-ana$/);
+    // Abrir um produto pela vitrine muda o endereço para o do produto.
+    await page.locator("#products .product", { hasText: "Vestido Floral" }).locator(".product-media").click();
+    await page.waitForURL(new RegExp(`/loja/moda-da-ana/p/${id}$`));
+    await page.close();
+  });
+
+  await check("painel avisa de pedido novo sem recarregar", async () => {
+    // Espera a primeira consulta: pedidos anteriores a ela já aparecem na lista e não geram aviso.
+    const firstPoll = panel.waitForResponse((r) => r.url().includes("/api/notifications"));
+    await panel.goto(url + "/painel#pedidos");
+    await firstPoll;
+    await panel.locator(".order").first().waitFor();
+    const id = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Vestido Floral").id;
+    const buyer = await browser.newContext();
+    const res = await buyer.request.post(`${url}/api/order-request/moda-da-ana`, {
+      headers: { Origin: url, "Content-Type": "application/json" },
+      data: { customer_name: "Nina Alerta", customer_phone: "54966665555", items: [{ id, quantity: 1 }] },
+    });
+    assert.equal(res.status(), 201);
+    await buyer.close();
+    // O painel consulta a cada 30 s e também ao voltar para a aba.
+    await panel.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await panel.locator("#toast", { hasText: "Novo pedido" }).waitFor();
+    await panel.locator(".order", { hasText: "Nina Alerta" }).waitFor();
+    assert.match(await panel.title(), /^\(\d+\) /);
+    assert.equal(await panel.locator("#pending-badge").isVisible(), true);
   });
 
   await check("gráfico de vendas por dia com dica, períodos e tabela", async () => {
