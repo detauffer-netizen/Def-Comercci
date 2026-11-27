@@ -4,6 +4,8 @@ import {
 import { mountTwoFactor } from "./twofactor.js";
 
 const $ = (id) => document.getElementById(id);
+// replaceChildren converte null em texto "null": filtre os opcionais.
+const kids = (...list) => list.flat().filter((k) => k !== null && k !== undefined && k !== false && k !== "");
 const state = { me: null, products: [], orders: [], metrics: null, orderStatus: "", editing: null, pendingFiles: [] };
 const STATUS = {
   pending: { label: "Pendente", badge: "badge-warn" },
@@ -102,6 +104,9 @@ async function start() {
   $("app").hidden = false;
   renderStoreHeader();
   for (const a of document.querySelectorAll(".nav a")) a.hidden = !can(a.dataset.perm);
+  for (const b of document.querySelectorAll(".quick-action")) b.hidden = !can(b.dataset.perm);
+  $("fab").hidden = !(can("orders") || can("products"));
+  $("new-sale").hidden = !can("orders");
   $("sidebar-nav").style.setProperty("--nav-items", String([...document.querySelectorAll(".nav a")].filter((a) => !a.hidden).length));
   // Com senha provisória, nada é carregado até a troca (a API recusaria).
   if (state.me.user.must_change_password) return openPassword(true);
@@ -786,12 +791,12 @@ async function aiCampaign(event) {
       h("strong", { text: title }),
       h("textarea", { readonly: true, "aria-label": title }, text),
       h("div", { class: "row-actions" }, h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: copy(text) }, icon("copy", "icon icon-sm"), "Copiar"), extra || null));
-    $("campaign-out").replaceChildren(
+    $("campaign-out").replaceChildren(...kids(
       h("p", { class: "ai-note", text: "Gerado por IA. Revise preços e informações antes de publicar." }),
       block("Mensagem para WhatsApp", s.whatsapp_message,
         h("a", { class: "btn btn-ghost btn-sm", href: `https://wa.me/?text=${encodeURIComponent(s.whatsapp_message)}`, target: "_blank", rel: "noopener" }, icon("chat", "icon icon-sm"), "Enviar")),
       block("Legenda para Instagram", s.instagram_caption),
-      s.ideas.length ? h("div", { class: "campaign-block" }, h("strong", { text: "Ideias de divulgação" }), h("ul", {}, ...s.ideas.map((i) => h("li", { text: i })))) : null);
+      s.ideas.length ? h("div", { class: "campaign-block" }, h("strong", { text: "Ideias de divulgação" }), h("ul", {}, ...s.ideas.map((i) => h("li", { text: i })))) : null));
     refreshAiUsage();
   });
 }
@@ -958,7 +963,7 @@ async function deleteProduct() {
 async function loadOrders() {
   loading($("order-list"));
   if (state.orderStatus === "abandoned") return loadAbandoned();
-  const query = state.orderStatus ? `?status=${state.orderStatus}` : "";
+  const query = state.orderStatus === "pos" ? "?channel=pos" : state.orderStatus ? `?status=${state.orderStatus}` : "";
   state.orders = await api(`/api/orders${query}`);
   renderOrders();
   if (!state.orderStatus) {
@@ -985,7 +990,7 @@ function renderOrders() {
       h("div", { class: "order-top" },
         h("div", {}, h("strong", { text: o.customer_name || "Cliente não identificado" }),
           h("div", { class: "muted", text: `#${o.code} · ${formatDate(o.created_at)}${o.customer_phone ? " · " + formatPhone(o.customer_phone) : ""}` })),
-        h("span", { class: `badge ${st.badge}`, text: st.label })),
+        h("span", {}, o.channel === "pos" ? h("span", { class: "badge badge-orange", text: "Balcão" }) : null, " ", h("span", { class: `badge ${st.badge}`, text: o.channel === "pos" && o.status === "completed" ? "Vendido" : st.label }))),
       h("div", { class: "order-items" },
         ...o.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
         o.discount_cents ? h("div", { class: "order-discount" }, h("span", { text: `Cupom ${o.coupon_code}` }), h("span", { text: `− ${money(o.discount_cents)}` })) : null,
@@ -993,6 +998,7 @@ function renderOrders() {
       o.fulfillment ? h("p", { class: "order-ship" },
         h("strong", { text: o.fulfillment === "pickup" ? "Retirada na loja" : `Entrega${o.delivery_fee_cents ? ` (taxa ${money(o.delivery_fee_cents)})` : " (grátis)"}` }),
         o.fulfillment === "delivery" ? o.address : null) : null,
+      o.payments?.length ? h("p", { class: "order-pay", text: paymentText(o) }) : null,
       o.notes ? h("p", { class: "order-notes", text: `Observações: ${o.notes}` }) : null,
       h("div", { class: "order-actions" }, ...actions));
   }));
@@ -1046,6 +1052,239 @@ function printOrder(card) {
     card.classList.remove("print-target");
     card.closest(".view")?.classList.remove("print-view");
     document.body.classList.remove("printing");
+    window.removeEventListener("afterprint", done);
+  };
+  window.addEventListener("afterprint", done);
+  window.print();
+  setTimeout(done, 1000);
+}
+
+// ---------- PDV: venda no balcão ----------
+
+const PAY_LABEL = { pix: "Pix", cash: "Dinheiro", credit: "Cartão de crédito", debit: "Cartão de débito", account: "A prazo" };
+const sale = { id: null, lines: new Map(), method: "pix", busy: false };
+
+function paymentText(o) {
+  const parts = o.payments.map((p) => `${PAY_LABEL[p.method] || p.method} ${money(p.amount_cents)}`);
+  return `Pagamento: ${parts.join(" + ")}${o.receivable_cents ? ` · a receber ${money(o.receivable_cents)}` : ""}`;
+}
+
+async function openSale() {
+  $("quick-dialog").close();
+  if (!can("orders")) return;
+  if (!state.products.length || state.productsStale) {
+    state.products = await api("/api/products");
+    state.productsStale = false;
+  }
+  resetSale();
+  $("sale-dialog").showModal();
+  $("sale-search").focus();
+}
+
+function resetSale() {
+  sale.id = crypto.randomUUID();
+  sale.lines.clear();
+  sale.method = "pix";
+  $("sale-form").reset();
+  $("sale-form").hidden = false;
+  $("sale-receipt").hidden = true;
+  $("sale-error").hidden = true;
+  $("sale-customer").open = false;
+  $("sale-results").replaceChildren();
+  setPayMethod("pix");
+  renderSale();
+}
+
+// Cada produto (ou variação) vira uma opção de busca.
+function saleCatalog() {
+  const out = [];
+  for (const p of state.products) {
+    const active = p.variants.filter((v) => v.active);
+    if (active.length) for (const v of active) out.push({ key: `${p.id}|${v.id}`, product: p, variant: v, name: `${p.name} · ${v.name}`, price: v.price_cents ?? p.final_price_cents, stock: v.stock, codes: [v.sku, p.sku, p.barcode] });
+    else out.push({ key: `${p.id}|`, product: p, variant: null, name: p.name, price: p.final_price_cents, stock: p.stock, codes: [p.sku, p.barcode] });
+  }
+  return out;
+}
+
+function saleSearch(addFirst = false) {
+  const q = $("sale-search").value.trim().toLowerCase();
+  const box = $("sale-results");
+  if (!q) return box.replaceChildren();
+  const all = saleCatalog();
+  const exact = all.filter((o) => o.codes.some((c) => c && c.toLowerCase() === q));
+  const found = exact.length ? exact : all.filter((o) => `${o.name} ${o.codes.join(" ")} ${o.product.category}`.toLowerCase().includes(q)).slice(0, 8);
+  if (addFirst && found.length === 1) {
+    addSaleLine(found[0]);
+    $("sale-search").value = "";
+    return box.replaceChildren();
+  }
+  if (!found.length) return box.replaceChildren(h("p", { class: "muted", text: "Nenhum produto encontrado." }));
+  box.replaceChildren(...found.map((o) => h("button", {
+    type: "button", class: "sale-result", disabled: o.stock <= 0,
+    onclick: () => { addSaleLine(o); $("sale-search").value = ""; box.replaceChildren(); $("sale-search").focus(); },
+  }, h("span", {}, h("strong", { text: o.name }), h("small", { text: o.stock > 0 ? `${o.stock} em estoque${o.product.active ? "" : " · oculto na vitrine"}` : "Sem estoque" })),
+  h("b", { text: money(o.price) }))));
+}
+
+function addSaleLine(option, delta = 1) {
+  const line = sale.lines.get(option.key) || { ...option, qty: 0 };
+  line.qty = Math.min(line.stock, line.qty + delta);
+  if (line.qty <= 0) sale.lines.delete(option.key);
+  else sale.lines.set(option.key, line);
+  if (delta > 0 && line.qty === line.stock && line.stock > 0) toast(`Estoque máximo de ${line.name}: ${line.stock}.`);
+  renderSale();
+}
+
+function saleTotals() {
+  const subtotal = [...sale.lines.values()].reduce((s, l) => s + l.price * l.qty, 0);
+  const discount = parseMoney($("sale-discount").value) || 0;
+  return { subtotal, discount, total: Math.max(0, subtotal - (Number.isNaN(discount) ? 0 : discount)) };
+}
+
+function renderSale() {
+  const lines = [...sale.lines.values()];
+  $("sale-items").replaceChildren(...(lines.length ? lines.map((l) => h("div", { class: "sale-line" },
+    h("div", { class: "name" }, h("strong", { text: l.name }), h("small", { text: `${money(l.price)} cada` })),
+    h("b", { text: money(l.price * l.qty) }),
+    h("div", { class: "qty" },
+      h("button", { type: "button", class: "btn btn-ghost btn-icon btn-sm", "aria-label": `Diminuir ${l.name}`, onclick: () => addSaleLine(l, -1) }, "−"),
+      h("output", { text: String(l.qty), "aria-label": `Quantidade de ${l.name}` }),
+      h("button", { type: "button", class: "btn btn-ghost btn-icon btn-sm", "aria-label": `Aumentar ${l.name}`, onclick: () => addSaleLine(l, 1) }, "+")),
+    h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => addSaleLine(l, -l.qty) }, "Remover"))) : [h("p", { class: "muted", text: "Busque ou escaneie um produto para começar." })]));
+  const t = saleTotals();
+  $("sale-sum").replaceChildren(...[
+    h("div", {}, h("span", { text: "Produtos" }), h("span", { text: money(t.subtotal) })),
+    t.discount ? h("div", {}, h("span", { text: "Desconto" }), h("span", { text: `− ${money(t.discount)}` })) : null,
+    h("div", { class: "total" }, h("span", { text: "Total" }), h("span", { text: money(t.total) }))].filter(Boolean));
+  $("finish-sale").textContent = lines.length ? `Finalizar venda · ${money(t.total)}` : "Finalizar venda";
+  updatePayHints();
+}
+
+function setPayMethod(method) {
+  sale.method = method;
+  for (const b of document.querySelectorAll("#pay-methods button")) b.setAttribute("aria-checked", String(b.dataset.method === method));
+  $("pay-cash").hidden = method !== "cash";
+  $("pay-mixed").hidden = method !== "mixed";
+  $("pay-account").hidden = method !== "account";
+  if (method === "account") $("sale-customer").open = true;
+  updatePayHints();
+}
+
+function mixedValues() {
+  return [...document.querySelectorAll("[data-mixed]")].map((i) => ({ method: i.dataset.mixed, amount_cents: parseMoney(i.value) || 0 }));
+}
+
+function updatePayHints() {
+  const { total } = saleTotals();
+  const received = parseMoney($("cash-received").value);
+  $("cash-change").textContent = received && received >= total ? `Troco: ${money(received - total)}` : received ? `Faltam ${money(total - received)}` : "";
+  const mixed = mixedValues().reduce((s, p) => s + p.amount_cents, 0);
+  $("mixed-left").textContent = mixed === total ? "Valores conferem com o total." : mixed < total ? `Falta distribuir ${money(total - mixed)}.` : `Passou ${money(mixed - total)} do total.`;
+  const entry = parseMoney($("account-entry").value) || 0;
+  $("account-left").textContent = entry > total ? "A entrada é maior que o total." : `Fica a receber: ${money(total - entry)}.`;
+}
+
+function salePayments(total) {
+  if (sale.method === "mixed") return mixedValues().filter((p) => p.amount_cents > 0);
+  if (sale.method === "account") {
+    const entry = parseMoney($("account-entry").value) || 0;
+    return [{ method: $("account-entry-method").value, amount_cents: entry }, { method: "account", amount_cents: total - entry }].filter((p) => p.amount_cents > 0);
+  }
+  return [{ method: sale.method, amount_cents: total }];
+}
+
+async function finishSale(event) {
+  event.preventDefault();
+  if (sale.busy) return;
+  const err = $("sale-error");
+  err.hidden = true;
+  const show = (text) => { err.textContent = text; err.hidden = false; };
+  if (!sale.lines.size) return show("Adicione pelo menos um produto.");
+  const discount = parseMoney($("sale-discount").value);
+  if (Number.isNaN(discount)) return show("Desconto inválido, por exemplo 5,00.");
+  const t = saleTotals();
+  if ((discount || 0) > t.subtotal) return show("O desconto não pode ser maior que o valor dos produtos.");
+  const f = $("sale-form").elements;
+  if (sale.method === "account" && (!f.customer_name.value.trim() || f.customer_phone.value.replace(/\D/g, "").length < 10)) {
+    $("sale-customer").open = true;
+    return show("Para vender a prazo, informe o nome e o telefone do cliente.");
+  }
+  const payments = salePayments(t.total);
+  if (payments.reduce((s, p) => s + p.amount_cents, 0) !== t.total) return show("A soma dos pagamentos precisa ser igual ao total.");
+  const button = $("finish-sale");
+  sale.busy = true;
+  button.disabled = true;
+  try {
+    // O mesmo id é reenviado se a conexão cair: o servidor não duplica a venda.
+    const result = await api("/api/sales", {
+      method: "POST",
+      body: {
+        id: sale.id, discount_cents: discount || 0, payments,
+        items: [...sale.lines.values()].map((l) => ({ id: l.product.id, ...(l.variant ? { variant_id: l.variant.id } : {}), quantity: l.qty })),
+        customer_name: f.customer_name.value, customer_phone: f.customer_phone.value, notes: f.notes.value,
+      },
+    });
+    state.productsStale = true;
+    showReceipt(result, sale.method === "cash" ? parseMoney($("cash-received").value) : null);
+    if (location.hash === "#pedidos") loadOrders().catch(() => {});
+  } catch (error) {
+    if (error.status === 401) return fail(error);
+    show(error.message);
+    if (error.status === 409) {
+      state.products = await api("/api/products").catch(() => state.products);
+    }
+  } finally {
+    sale.busy = false;
+    button.disabled = false;
+  }
+}
+
+function receiptText(s, change) {
+  return [
+    `${state.me.store.name} — comprovante de venda #${s.code}`,
+    formatDate(s.created_at),
+    "",
+    ...s.items.map((i) => `${i.quantity}x ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""} — ${money(i.price_cents * i.quantity)}`),
+    "",
+    s.discount_cents ? `Desconto: − ${money(s.discount_cents)}` : null,
+    `Total: ${money(s.total_cents)}`,
+    `Pagamento: ${s.payments.map((p) => `${PAY_LABEL[p.method]} ${money(p.amount_cents)}`).join(" + ")}`,
+    change ? `Troco: ${money(change)}` : null,
+    s.receivable_cents ? `A receber: ${money(s.receivable_cents)}` : null,
+    "",
+    "Este comprovante não é documento fiscal. Obrigado pela preferência!",
+  ].filter((l) => l !== null).join("\n");
+}
+
+function showReceipt(s, received) {
+  const change = received && received > s.total_cents ? received - s.total_cents : 0;
+  const line = (a, b, cls = "") => h("div", { class: `line ${cls}` }, h("span", { text: a }), h("span", { text: b }));
+  $("receipt").replaceChildren(...[
+    h("p", { class: "receipt-ok" }, icon("check"), s.replayed ? "Venda já registrada (nada foi duplicado)." : "Venda registrada e estoque atualizado."),
+    h("h3", { text: state.me.store.name }),
+    h("p", { class: "muted", text: `Comprovante de venda #${s.code} · ${formatDate(s.created_at)}` }),
+    h("div", { class: "sep" }),
+    ...s.items.map((i) => line(`${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`, money(i.price_cents * i.quantity))),
+    h("div", { class: "sep" }),
+    s.discount_cents ? line("Desconto", `− ${money(s.discount_cents)}`) : null,
+    line("Total", money(s.total_cents), "big"),
+    ...s.payments.map((p) => line(PAY_LABEL[p.method], money(p.amount_cents))),
+    change ? line("Troco", money(change)) : null,
+    s.receivable_cents ? line("A receber", money(s.receivable_cents), "big") : null,
+    s.customer_phone || s.customer_name !== "Cliente do balcão" ? h("p", { text: `Cliente: ${s.customer_name}${s.customer_phone ? ` · ${formatPhone(s.customer_phone)}` : ""}` }) : null,
+    h("p", { class: "fiscal", text: "Este comprovante não é documento fiscal." })].filter(Boolean));
+  const share = $("share-receipt");
+  share.hidden = !s.customer_phone;
+  if (s.customer_phone) share.href = whatsappLink(s.customer_phone, receiptText(s, change));
+  $("sale-form").hidden = true;
+  $("sale-receipt").hidden = false;
+  $("another-sale").focus();
+}
+
+function printReceipt() {
+  document.body.classList.add("printing-receipt");
+  const done = () => {
+    document.body.classList.remove("printing-receipt");
     window.removeEventListener("afterprint", done);
   };
   window.addEventListener("afterprint", done);
@@ -1151,7 +1390,7 @@ async function loadPlan() {
     const r = await api(path, { method: "POST", body: { plan_id: plan.id } });
     location.href = r.checkout_url;
   });
-  box.replaceChildren(
+  box.replaceChildren(...kids(
     h("div", { class: "plan-current" },
       h("div", {}, h("small", { class: "muted", text: "Plano atual" }), h("div", {}, h("strong", { text: b.plan.name }))),
       st && b.plan.price_cents > 0 ? h("span", { class: `badge ${st[1]}`, text: st[0] }) : null),
@@ -1179,7 +1418,7 @@ async function loadPlan() {
       await loadPlan();
     }) }, "Cancelar renovação") : null,
     b.payments.length ? h("details", { class: "plan-history" }, h("summary", { text: "Pagamentos" }),
-      ...b.payments.map((p) => h("div", { class: "row" }, h("div", { class: "grow" }, h("strong", { text: money(p.amount_cents) }), h("small", { text: `${p.method || "Mercado Pago"} · ${formatDate(p.created_at)}` })), h("span", { class: `badge ${p.status === "approved" ? "badge-ok" : "badge-warn"}`, text: p.status === "approved" ? "Aprovado" : p.status })))) : null);
+      ...b.payments.map((p) => h("div", { class: "row" }, h("div", { class: "grow" }, h("strong", { text: money(p.amount_cents) }), h("small", { text: `${p.method || "Mercado Pago"} · ${formatDate(p.created_at)}` })), h("span", { class: `badge ${p.status === "approved" ? "badge-ok" : "badge-warn"}`, text: p.status === "approved" ? "Aprovado" : p.status })))) : null));
 }
 
 // ---------- Cupons ----------
@@ -1480,6 +1719,29 @@ $("logout").addEventListener("click", async () => {
 window.addEventListener("hashchange", () => { if (!$("app").hidden) route(); });
 
 $("new-product").addEventListener("click", () => openProduct(null));
+$("new-sale").addEventListener("click", () => openSale().catch(fail));
+$("fab").addEventListener("click", () => $("quick-dialog").showModal());
+$("quick-sale").addEventListener("click", () => openSale().catch(fail));
+$("quick-product").addEventListener("click", () => {
+  $("quick-dialog").close();
+  if (location.hash !== "#produtos") location.hash = "produtos";
+  openProduct(null);
+});
+$("sale-search").addEventListener("input", () => saleSearch(false));
+$("sale-search").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault(); // leitor de código de barras termina com Enter
+  saleSearch(true);
+});
+$("sale-discount").addEventListener("input", renderSale);
+for (const input of document.querySelectorAll("#pay-cash input, #pay-mixed input, #account-entry")) input.addEventListener("input", updatePayHints);
+$("pay-methods").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-method]");
+  if (b) setPayMethod(b.dataset.method);
+});
+$("sale-form").addEventListener("submit", finishSale);
+$("print-receipt").addEventListener("click", printReceipt);
+$("another-sale").addEventListener("click", () => { resetSale(); $("sale-search").focus(); });
 $("product-search").addEventListener("input", renderProducts);
 for (const name of ["price", "promo", "cost"]) $("product-form").elements[name].addEventListener("input", updateMargin);
 $("dash-periods").addEventListener("click", (e) => {
@@ -1496,7 +1758,7 @@ $("dash-custom").addEventListener("submit", (e) => {
 $("product-filter").addEventListener("change", renderProducts);
 $("product-form").addEventListener("submit", saveProduct);
 $("delete-product").addEventListener("click", deleteProduct);
-for (const btn of document.querySelectorAll("[data-close]")) btn.addEventListener("click", () => $("product-dialog").close());
+for (const btn of document.querySelectorAll("[data-close]")) btn.addEventListener("click", () => btn.closest("dialog").close());
 $("image-input").addEventListener("change", async (e) => {
   const files = [...e.target.files];
   e.target.value = "";

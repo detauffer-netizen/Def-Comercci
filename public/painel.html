@@ -100,7 +100,7 @@
     <nav class="nav" id="sidebar-nav" aria-label="Seções do painel">
       <a href="#inicio" data-view="inicio"><svg class="icon"><use href="#i-home"/></svg><span>Início</span></a>
       <a href="#produtos" data-view="produtos" data-perm="products"><svg class="icon"><use href="#i-box"/></svg><span>Produtos</span></a>
-      <a href="#pedidos" data-view="pedidos" data-perm="orders"><svg class="icon"><use href="#i-receipt"/></svg><span>Pedidos</span><b id="pending-badge" class="nav-count" hidden></b></a>
+      <a href="#pedidos" data-view="pedidos" data-perm="orders"><svg class="icon"><use href="#i-receipt"/></svg><span>Vendas</span><b id="pending-badge" class="nav-count" hidden></b></a>
       <a href="#clientes" data-view="clientes" data-perm="customers"><svg class="icon"><use href="#i-users"/></svg><span>Clientes</span></a>
       <a href="#loja" data-view="loja" data-perm="owner"><svg class="icon"><use href="#i-store"/></svg><span>Minha loja</span></a>
     </nav>
@@ -203,8 +203,9 @@
 
     <section id="view-pedidos" class="view" aria-labelledby="h-pedidos" hidden>
       <div class="view-head">
-        <h1 id="h-pedidos">Pedidos</h1>
+        <h1 id="h-pedidos">Vendas</h1>
         <div class="head-actions">
+          <button id="new-sale" class="btn btn-primary"><svg class="icon"><use href="#i-plus"/></svg>Nova venda</button>
           <button id="enable-alerts" class="btn btn-ghost" hidden><svg class="icon"><use href="#i-bell"/></svg>Ativar alertas</button>
           <button id="export-orders" class="btn btn-ghost"><svg class="icon"><use href="#i-download"/></svg>Exportar CSV</button>
         </div>
@@ -215,6 +216,7 @@
         <button class="chip" data-status="confirmed" aria-pressed="false">Confirmados</button>
         <button class="chip" data-status="completed" aria-pressed="false">Concluídos</button>
         <button class="chip" data-status="cancelled" aria-pressed="false">Cancelados</button>
+        <button class="chip" data-status="pos" aria-pressed="false">No balcão</button>
         <button class="chip" data-status="abandoned" aria-pressed="false">Carrinhos abandonados</button>
       </div>
       <div id="order-list" class="order-list"></div>
@@ -341,6 +343,78 @@
     </section>
   </div>
 </div>
+
+<button id="fab" class="fab" type="button" aria-label="Ações rápidas" aria-haspopup="dialog" hidden><svg class="icon"><use href="#i-plus"/></svg></button>
+<dialog id="quick-dialog" class="quick-dialog" aria-labelledby="quick-title">
+  <div class="dialog-head"><h2 id="quick-title">O que você quer fazer?</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <div class="dialog-body quick-actions">
+    <button type="button" class="quick-action" id="quick-sale" data-perm="orders"><svg class="icon"><use href="#i-receipt"/></svg><span><b>Registrar venda</b><small>Venda no balcão, com baixa no estoque</small></span></button>
+    <button type="button" class="quick-action" id="quick-product" data-perm="products"><svg class="icon"><use href="#i-box"/></svg><span><b>Cadastrar produto</b><small>Manual, por mensagem ou por foto</small></span></button>
+  </div>
+</dialog>
+
+<dialog id="sale-dialog" class="sale-dialog" aria-labelledby="sale-title">
+  <div class="dialog-head"><h2 id="sale-title">Nova venda</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <form id="sale-form" novalidate>
+    <div class="dialog-body">
+      <label class="search sale-search"><svg class="icon"><use href="#i-search"/></svg><span class="sr-only">Buscar produto</span><input id="sale-search" type="search" placeholder="Nome, SKU ou código de barras" autocomplete="off" enterkeyhint="search"></label>
+      <div id="sale-results" class="sale-results" aria-live="polite"></div>
+      <div id="sale-items" class="sale-items"></div>
+      <div class="grid-2">
+        <label class="field"><span>Desconto (R$)</span><input id="sale-discount" inputmode="decimal" placeholder="0,00"></label>
+      </div>
+      <div class="sale-sum" id="sale-sum"></div>
+      <fieldset class="pay-box">
+        <legend>Forma de pagamento</legend>
+        <div class="pay-methods" id="pay-methods" role="radiogroup" aria-label="Forma de pagamento">
+          <button type="button" role="radio" data-method="pix" aria-checked="true">Pix</button>
+          <button type="button" role="radio" data-method="cash" aria-checked="false">Dinheiro</button>
+          <button type="button" role="radio" data-method="credit" aria-checked="false">Crédito</button>
+          <button type="button" role="radio" data-method="debit" aria-checked="false">Débito</button>
+          <button type="button" role="radio" data-method="mixed" aria-checked="false">Misto</button>
+          <button type="button" role="radio" data-method="account" aria-checked="false">A prazo</button>
+        </div>
+        <div id="pay-cash" class="pay-extra" hidden>
+          <label class="field"><span>Valor recebido (R$)</span><input id="cash-received" inputmode="decimal" placeholder="Opcional, para calcular o troco"></label>
+          <p id="cash-change" class="muted" role="status"></p>
+        </div>
+        <div id="pay-mixed" class="pay-extra grid-2" hidden>
+          <label class="field"><span>Pix (R$)</span><input data-mixed="pix" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field"><span>Dinheiro (R$)</span><input data-mixed="cash" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field"><span>Crédito (R$)</span><input data-mixed="credit" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field"><span>Débito (R$)</span><input data-mixed="debit" inputmode="decimal" placeholder="0,00"></label>
+          <p id="mixed-left" class="muted mixed-left" role="status"></p>
+        </div>
+        <div id="pay-account" class="pay-extra grid-2" hidden>
+          <label class="field"><span>Entrada (R$)</span><input id="account-entry" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field"><span>Entrada paga em</span><select id="account-entry-method" class="input"><option value="pix">Pix</option><option value="cash">Dinheiro</option><option value="credit">Crédito</option><option value="debit">Débito</option></select></label>
+          <p id="account-left" class="muted mixed-left" role="status"></p>
+        </div>
+      </fieldset>
+      <details class="advanced" id="sale-customer">
+        <summary>Cliente e observações (opcional)</summary>
+        <div class="grid-2">
+          <label class="field"><span>Nome do cliente</span><input name="customer_name" maxlength="100" autocomplete="off"></label>
+          <label class="field"><span>Telefone / WhatsApp</span><input name="customer_phone" type="tel" inputmode="tel" autocomplete="off" placeholder="(54) 99999-9999"></label>
+        </div>
+        <label class="field"><span>Observações</span><input name="notes" maxlength="500"></label>
+      </details>
+      <p id="sale-error" class="form-error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-primary btn-block" id="finish-sale">Finalizar venda</button>
+    </div>
+  </form>
+  <div id="sale-receipt" class="receipt-box" hidden>
+    <div class="dialog-body"><div id="receipt" class="receipt"></div></div>
+    <div class="dialog-foot receipt-actions">
+      <button type="button" class="btn btn-ghost" id="print-receipt"><svg class="icon icon-sm"><use href="#i-print"/></svg>Imprimir</button>
+      <a class="btn btn-ghost" id="share-receipt" target="_blank" rel="noopener" hidden><svg class="icon icon-sm"><use href="#i-chat"/></svg>Enviar no WhatsApp</a>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-primary" id="another-sale"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Nova venda</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="product-dialog" aria-labelledby="product-dialog-title">
   <form id="product-form" method="dialog" novalidate>
