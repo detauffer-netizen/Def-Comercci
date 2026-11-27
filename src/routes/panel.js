@@ -9,6 +9,7 @@ import {
 import { effectivePrice, imagesByProduct, parseCategoryOrder, variantsByProduct } from "./public.js";
 import * as v from "../lib/validate.js";
 import { assertWithinLimit } from "../lib/billing.js";
+import { returnsByOrder } from "./finance.js";
 
 function storeView(store) {
   return {
@@ -352,10 +353,16 @@ export async function listOrders(request, env, session) {
        FROM orders WHERE store_id=? AND (? IS NULL OR status=?) AND (? IS NULL OR channel=?)
       ORDER BY created_at DESC LIMIT 200`,
   ).bind(session.store.id, filter, filter, channel, channel).all();
-  return json(rows.results.map(({ items_json, payments_json, ...o }) => ({
-    ...o, code: o.id.slice(0, 8).toUpperCase(), items: JSON.parse(items_json).map(({ cost_cents: _c, ...i }) => i),
-    payments: JSON.parse(payments_json || "[]"),
-  })));
+  const returns = await returnsByOrder(env.DB, session.store.id);
+  return json(rows.results.map(({ items_json, payments_json, ...o }) => {
+    const ret = returns.get(o.id);
+    return {
+      ...o, code: o.id.slice(0, 8).toUpperCase(),
+      items: JSON.parse(items_json).map(({ cost_cents: _c, ...i }) => ({ ...i, returned: ret?.quantities[`${i.id}|${i.variant_id || ""}`] || 0 })),
+      payments: JSON.parse(payments_json || "[]"),
+      returned_cents: ret?.value_cents || 0,
+    };
+  }));
 }
 
 export async function updateOrderStatus(request, env, session, params) {

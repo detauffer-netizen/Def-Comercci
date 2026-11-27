@@ -17,6 +17,7 @@ import * as ai from "./routes/ai.js";
 import * as carts from "./routes/carts.js";
 import * as dashboard from "./routes/dashboard.js";
 import * as sales from "./routes/sales.js";
+import * as finance from "./routes/finance.js";
 import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
@@ -74,6 +75,12 @@ const ROUTES = [
   ["GET", "/api/stock-movements", panel.stockMovements, "products"],
   ["GET", "/api/orders", panel.listOrders, "orders"],
   ["POST", "/api/sales", sales.createSale, "orders"],
+  ["POST", "/api/orders/:id/returns", finance.createReturn, "orders"],
+  ["GET", "/api/receivables", finance.listReceivables, "orders"],
+  ["POST", "/api/receivables/:id", finance.receivePayment, "orders"],
+  ["GET", "/api/expenses", finance.listExpenses, "reports"],
+  ["POST", "/api/expenses", finance.createExpense, "reports"],
+  ["DELETE", "/api/expenses/:id", finance.deleteExpense, "reports"],
   ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
   ["GET", "/api/notifications", panel.notifications, "orders"],
   ["GET", "/api/abandoned-carts", carts.listAbandonedCarts, "orders"],
