@@ -109,7 +109,7 @@ export async function dashboard(request, env, session) {
   // Estoque: valor pelo custo, valor de venda e itens para repor.
   const products = (await db.prepare(
     `SELECT id,name,price_cents,promo_price_cents,stock,cost_cents,min_stock,supplier,created_at
-       FROM products WHERE store_id=? AND active=1`,
+       FROM products WHERE store_id=?`,
   ).bind(storeId).all()).results;
   const variants = await variantsByProduct(db, storeId, { activeOnly: true });
   let stockCost = 0;
