@@ -25,6 +25,7 @@ export async function exportData(request, env, session) {
     images: await all(db, "SELECT product_id,r2_key,content_type,bytes,created_at FROM product_images WHERE store_id=?", id),
     orders: (await all(db, "SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes,fulfillment,delivery_fee_cents,address FROM orders WHERE store_id=? ORDER BY created_at", id))
       .map(({ items_json, ...o }) => ({ ...o, items: JSON.parse(items_json) })),
+    abandoned_carts: await all(db, "SELECT customer_name,customer_phone,items_json,total_cents,status,created_at,updated_at FROM abandoned_carts WHERE store_id=?", id),
     coupons: await all(db, "SELECT code,kind,value,min_order_cents,max_uses,uses,expires_at,active,created_at FROM coupons WHERE store_id=?", id),
     stock_movements: await all(db, "SELECT product_id,product_name,delta,stock_after,created_at FROM stock_movements WHERE store_id=? ORDER BY id", id),
     audit_log: await all(db, "SELECT action,target,detail,created_at FROM audit_log WHERE store_id=? ORDER BY id", id),
@@ -60,6 +61,7 @@ export async function deleteStore(request, env, session) {
     db.prepare("DELETE FROM products WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM orders WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM coupons WHERE store_id=?").bind(id),
+    db.prepare("DELETE FROM abandoned_carts WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM ai_usage WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM subscriptions WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM billing_payments WHERE store_id=?").bind(id),
@@ -94,7 +96,8 @@ export async function forgetCustomer(request, env, session, params) {
   const result = await env.DB.prepare(
     "UPDATE orders SET customer_name='Cliente removido', customer_phone='', notes='', address='' WHERE store_id=? AND customer_phone=?",
   ).bind(session.store.id, phone).run();
-  if (!result.meta.changes) throw new HttpError(404, "Cliente não encontrado");
+  const carts = await env.DB.prepare("DELETE FROM abandoned_carts WHERE store_id=? AND customer_phone=?").bind(session.store.id, phone).run();
+  if (!result.meta.changes && !carts.meta.changes) throw new HttpError(404, "Cliente não encontrado");
   await audit(env.DB, { storeId: session.store.id, userId: session.user.id, action: "customer.anonymized", detail: `${result.meta.changes} pedido(s)` });
   return json({ ok: true, orders: result.meta.changes });
 }
