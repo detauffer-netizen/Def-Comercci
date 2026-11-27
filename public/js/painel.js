@@ -1,6 +1,7 @@
 import {
   ApiError, api, centsToInput, sortCategories, compressImage, downloadCsv, formatDate, formatPhone, h, icon, money, parseMoney, toast, whatsappLink,
 } from "./common.js";
+import { barcodeSvg } from "./barcode.js";
 import { mountTwoFactor } from "./twofactor.js";
 
 const $ = (id) => document.getElementById(id);
@@ -513,6 +514,8 @@ async function loadProducts() {
   if ($("category-card").open) loadCategoryOrder().catch(fail);
   if ($("supplier-card").open) loadSuppliers().catch(fail);
   refreshRestockCount().catch(() => {});
+  if (aiAvailable === null) refreshAiUsage();
+  else $("open-photos").hidden = !aiAvailable;
 }
 
 function renderProducts() {
@@ -714,6 +717,7 @@ async function refreshAiUsage() {
   }
   $("ai-box").hidden = !aiAvailable;
   $("ai-improve").hidden = !aiAvailable;
+  $("open-photos").hidden = !aiAvailable;
   if (can("owner")) $("ai-campaign-card").hidden = !aiAvailable;
 }
 
@@ -1816,6 +1820,7 @@ async function applyBulk() {
   const action = $("bulk-action").value;
   const raw = $("bulk-value").value.trim();
   const body = { ids: [...state.bulk] };
+  if (action === "labels") return openLabels(state.bulk);
   if (action === "hide" || action === "show") Object.assign(body, { action: "visibility", value: action === "show" });
   else if (action === "price_percent") {
     const pct = Number(raw.replace(",", "."));
@@ -1895,6 +1900,161 @@ function stopScan() {
   scanner.stream?.getTracks().forEach((t) => t.stop());
   scanner.stream = null;
   $("scan-video").srcObject = null;
+}
+
+// ---------- Etiquetas com código de barras ----------
+
+let labelItems = [];
+function openLabels(ids) {
+  labelItems = [];
+  for (const p of state.products.filter((x) => ids.has(x.id))) {
+    const active = p.variants.filter((x) => x.active);
+    if (active.length) for (const x of active) labelItems.push({ name: `${p.name} · ${x.name}`, price: x.price_cents ?? p.final_price_cents, code: x.sku || p.barcode || p.sku, stock: x.stock });
+    else labelItems.push({ name: p.name, price: p.final_price_cents, code: p.barcode || p.sku, stock: p.stock });
+  }
+  renderLabels();
+  $("labels-dialog").showModal();
+}
+
+function renderLabels() {
+  const perItem = Math.max(1, Math.min(100, Number($("labels-qty").value) || 1));
+  const byStock = $("labels-stock").checked;
+  $("labels-qty").disabled = byStock;
+  const showPrice = $("labels-price").checked;
+  const labels = [];
+  let skipped = 0;
+  for (const it of labelItems) {
+    const n = byStock ? Math.min(it.stock, 100) : perItem;
+    let svg = null;
+    if (it.code) {
+      try { svg = barcodeSvg(it.code); } catch { skipped++; }
+    }
+    for (let i = 0; i < n; i++) {
+      labels.push(h("div", { class: "label" },
+        h("span", { class: "l-name", text: it.name }),
+        showPrice ? h("span", { class: "l-price", text: money(it.price) }) : null,
+        svg ? svg.cloneNode(true) : null,
+        it.code ? h("span", { class: "l-code", text: it.code }) : null));
+    }
+  }
+  const total = labels.length;
+  $("labels-note").textContent = `${total} etiqueta(s) · folha A4 com 3 colunas (63,5 × 38,1 mm, 21 por folha).` +
+    (skipped ? ` ${skipped} código(s) com acento ou caractere especial ficaram sem barras.` : "") +
+    (labelItems.some((it) => !it.code) ? " Itens sem SKU nem código de barras saem só com nome e preço." : "");
+  if (!total) return empty($("labels-sheet"), "box", "Nenhuma etiqueta: os itens escolhidos estão sem estoque.");
+  $("labels-sheet").replaceChildren(...labels.slice(0, 500));
+}
+
+function printLabels() {
+  document.body.classList.add("printing-labels");
+  const done = () => {
+    document.body.classList.remove("printing-labels");
+    window.removeEventListener("afterprint", done);
+  };
+  window.addEventListener("afterprint", done);
+  window.print();
+  setTimeout(done, 1000);
+}
+
+// ---------- Cadastro por várias fotos ----------
+// Cada foto vira um rascunho preenchido pela IA. Nada é salvo antes de o
+// lojista revisar e informar o preço. Respeita o limite diário de IA.
+
+const MAX_PHOTO_DRAFTS = 10;
+let drafts = [];
+
+async function startPhotoDrafts(files) {
+  files = [...files].slice(0, MAX_PHOTO_DRAFTS);
+  if (!files.length) return;
+  const usage = await api("/api/ai/usage");
+  const room = Math.max(0, usage.limit - usage.used);
+  if (!room) return toast("O limite de uso da IA de hoje acabou. Tente amanhã ou cadastre manualmente.", { error: true });
+  const used = files.slice(0, room);
+  drafts = used.map((file) => ({ file, preview: URL.createObjectURL(file), status: "Aguardando análise...", data: null, error: false, done: false }));
+  $("drafts-note").textContent = `${used.length} foto(s) para analisar${files.length > used.length ? ` (o limite de hoje permite só ${room}; as outras ficaram de fora)` : ""}. A IA sugere nome, descrição e categoria; o preço é você quem informa.`;
+  $("drafts-save").disabled = true;
+  renderDrafts();
+  $("drafts-dialog").showModal();
+  for (const d of drafts) {
+    if (!$("drafts-dialog").open) break;
+    d.status = "Analisando a foto...";
+    renderDrafts();
+    try {
+      const blob = await compressImage(d.file, { max: 1024 });
+      const r = await api("/api/ai/product-from-photo", { method: "POST", blob });
+      d.data = { name: r.suggestion.name, description: r.suggestion.description, category: r.suggestion.category, price: "", stock: "1" };
+      d.status = "Sugestão pronta: revise e informe o preço.";
+      $("ai-usage").textContent = `${r.usage.used} de ${r.usage.limit} usos hoje`;
+    } catch (error) {
+      if (error.status === 401) return fail(error);
+      d.error = true;
+      d.data = { name: "", description: "", category: "", price: "", stock: "1" };
+      d.status = `${error.message} Preencha manualmente ou remova.`;
+      if (error.status === 429 || error.status === 402) {
+        for (const rest of drafts.filter((x) => !x.data)) {
+          rest.data = { name: "", description: "", category: "", price: "", stock: "1" };
+          rest.status = "Sem análise (limite da IA). Preencha manualmente.";
+        }
+      }
+    }
+    renderDrafts();
+  }
+  $("drafts-save").disabled = false;
+}
+
+function renderDrafts() {
+  $("drafts-list").replaceChildren(...drafts.map((d, i) => {
+    const input = (key, label, attrs = {}) => h("label", { class: "field" }, h("span", { text: label }),
+      h("input", { value: d.data?.[key] ?? "", disabled: !d.data || d.done, oninput: (e) => { d.data[key] = e.target.value; }, ...attrs }));
+    return h("article", { class: `draft ${d.error ? "error" : ""} ${d.done ? "done" : ""}` },
+      h("img", { src: d.preview, alt: `Foto ${i + 1}` }),
+      h("div", { class: "fields" },
+        h("span", { class: "status", text: d.status }),
+        input("name", "Nome do produto", { maxlength: "120" }),
+        h("div", { class: "row2" },
+          input("price", "Preço (R$)", { inputmode: "decimal", placeholder: "0,00" }),
+          input("stock", "Estoque", { type: "number", min: "0", inputmode: "numeric" })),
+        input("category", "Categoria", { maxlength: "80", list: "category-options" }),
+        d.done ? null : h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => {
+          URL.revokeObjectURL(d.preview);
+          drafts.splice(i, 1);
+          renderDrafts();
+        } }, "Remover")));
+  }));
+}
+
+async function saveDrafts() {
+  const pending = drafts.filter((d) => d.data && !d.done);
+  for (const d of pending) {
+    const price = parseMoney(d.data.price);
+    const stock = Number(d.data.stock);
+    if (!d.data.name.trim()) return toast("Há um rascunho sem nome.", { error: true });
+    if (!price || Number.isNaN(price)) return toast(`Informe o preço de "${d.data.name}".`, { error: true });
+    if (!Number.isInteger(stock) || stock < 0) return toast(`Estoque inválido em "${d.data.name}".`, { error: true });
+  }
+  await busy($("drafts-save"), async () => {
+    let saved = 0;
+    for (const d of pending) {
+      try {
+        const { id } = await api("/api/products", { method: "POST", body: {
+          name: d.data.name, description: d.data.description, category: d.data.category,
+          price_cents: parseMoney(d.data.price), stock: Number(d.data.stock), active: true,
+        } });
+        await uploadImages(id, [{ file: d.file }]);
+        d.done = true;
+        d.status = "Salvo.";
+        saved++;
+      } catch (error) {
+        if (error.status === 401) return fail(error);
+        d.error = true;
+        d.status = error.message;
+      }
+      renderDrafts();
+    }
+    toast(`${saved} produto(s) cadastrado(s).`);
+    if (drafts.every((d) => d.done)) $("drafts-dialog").close();
+    await loadProducts();
+  });
 }
 
 async function setOrderStatus(order, status, button) {
@@ -2361,6 +2521,17 @@ $("bulk-all").addEventListener("click", () => {
   }
 });
 $("duplicate-product").addEventListener("click", duplicateProduct);
+$("photos-input").addEventListener("change", (e) => {
+  const files = [...e.target.files];
+  e.target.value = "";
+  startPhotoDrafts(files).catch(fail);
+});
+$("drafts-save").addEventListener("click", () => saveDrafts().catch(fail));
+$("drafts-dialog").addEventListener("close", () => { for (const d of drafts) URL.revokeObjectURL(d.preview); drafts = []; });
+for (const id of ["labels-qty", "labels-stock", "labels-price"]) $(id).addEventListener("input", renderLabels);
+$("labels-stock").addEventListener("change", renderLabels);
+$("labels-price").addEventListener("change", renderLabels);
+$("labels-print").addEventListener("click", printLabels);
 $("scan-dialog").addEventListener("close", stopScan);
 for (const b of document.querySelectorAll(".scan-btn")) {
   b.hidden = !canScan();
