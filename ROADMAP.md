@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 31 testes de API/integração + 11 verificações E2E em navegador
+- ✅ 31 testes de API/integração + 12 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 

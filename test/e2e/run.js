@@ -174,6 +174,24 @@ try {
     assert.match(await panel.locator("#kpis").textContent(), /Clientes1/);
   });
 
+  await check("todas as telas sem rolagem horizontal a 320 px", async () => {
+    // Margem para fontes mais largas que as desta máquina (ex.: no CI).
+    const narrow = await browser.newContext({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true });
+    await narrow.addCookies(await mobile.cookies());
+    const page = await narrow.newPage();
+    watch(page, "320px");
+    for (const view of ["inicio", "produtos", "pedidos", "clientes", "loja"]) {
+      await page.goto(`${url}/painel#${view}`);
+      await page.locator(`#view-${view}`).waitFor();
+      await page.waitForLoadState("networkidle");
+      await noHorizontalScroll(page, `painel ${view} 320px`);
+    }
+    await page.goto(url + "/loja/moda-da-ana");
+    await page.locator("#products .product").first().waitFor();
+    await noHorizontalScroll(page, "vitrine 320px");
+    await narrow.close();
+  });
+
   await check("painel no desktop sem rolagem horizontal", async () => {
     const desktop = await browser.newContext({ viewport: { width: 1366, height: 860 } });
     await desktop.addCookies(await mobile.cookies());

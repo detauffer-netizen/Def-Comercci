@@ -27,7 +27,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - Painel redesenhado: início com indicadores e primeiros passos, produtos, pedidos com filtros e ações, clientes com WhatsApp, configurações da loja, histórico de estoque e registro de atividades.
 - Vitrine redesenhada: banner e logotipo, categorias, destaques, galeria de fotos, carrinho persistente, checkout com observações, compartilhamento.
 - Cadastro já autentica o lojista; sugestão automática do endereço da loja.
-- Testes: 31 de API/integração (`npm test`), verificação de CSP (`npm run check`) e 11 verificações E2E em navegador (`npm run test:e2e`).
+- Testes: 31 de API/integração (`npm test`), verificação de CSP (`npm run check`) e 12 verificações E2E em navegador (`npm run test:e2e`).
 - `wrangler.toml`, `package.json`, CI e workflow de publicação com backup do D1, migrações e verificação de saúde.
 - Documentação: README, CLAUDE.md, ROADMAP.md, SECURITY.md, docs/AUDITORIA.md, .env.example.
 

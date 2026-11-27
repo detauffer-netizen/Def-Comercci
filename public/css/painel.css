@@ -142,3 +142,10 @@
 .image-add { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 84px; height: 84px; margin-top: 8px; border: 1.5px dashed #b8c6dc; border-radius: 12px; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; }
 .image-add:hover { border-color: var(--blue-600); color: var(--blue-700); }
 .image-hint { display: block; }
+
+/* Telas estreitas: itens de grade e campos flexíveis podem encolher. */
+.two-col { grid-template-columns: minmax(0, 1fr); }
+.two-col > * { min-width: 0; }
+.share-box .input { flex: 1; min-width: 0; }
+.empty .btn { white-space: normal; max-width: 100%; }
+@media (min-width: 900px) { .two-col { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
