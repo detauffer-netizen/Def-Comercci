@@ -80,3 +80,15 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .cart-line .variant { display: block; font-size: 13px; color: var(--muted); }
 .shop-footer p { margin: 8px 0 0; }
 .shop-footer p a { color: var(--muted); }
+
+/* Cupom */
+.coupon-box { margin-top: 12px; }
+.coupon-box .field { margin-bottom: 6px; }
+.coupon-row { display: flex; gap: 8px; }
+.coupon-row .input { flex: 1; min-width: 0; text-transform: uppercase; }
+.coupon-msg { font-size: 13.5px; margin: 6px 0 0; }
+.coupon-msg.ok { color: var(--ok); }
+.coupon-msg.error { color: var(--danger); }
+.cart-row { display: flex; justify-content: space-between; padding: 4px 0; color: var(--muted); }
+.cart-row.discount { color: var(--ok); font-weight: 600; }
+.cart-row + .cart-sum { border-top: 1px solid var(--line); margin-top: 6px; }

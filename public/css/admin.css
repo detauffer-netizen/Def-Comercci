@@ -31,3 +31,9 @@ td small { display: block; color: var(--muted); }
 .row .grow { flex: 1; min-width: 0; }
 .row small { color: var(--muted); display: block; }
 @media (max-width: 480px) { .hide-sm { display: none; } }
+
+.error-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.error-row:last-child { border-bottom: 0; }
+.error-row code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.error-row .msg { color: var(--danger); display: block; margin-top: 2px; word-break: break-word; }
+.error-row small { color: var(--muted); }

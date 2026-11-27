@@ -709,6 +709,7 @@ function renderOrders() {
         h("span", { class: `badge ${st.badge}`, text: st.label })),
       h("div", { class: "order-items" },
         ...o.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
+        o.discount_cents ? h("div", { class: "order-discount" }, h("span", { text: `Cupom ${o.coupon_code}` }), h("span", { text: `− ${money(o.discount_cents)}` })) : null,
         h("div", { style: { fontWeight: "700", marginTop: "6px" } }, h("span", { text: "Total" }), h("span", { text: money(o.total_cents) }))),
       o.notes ? h("p", { class: "order-notes", text: `Observações: ${o.notes}` }) : null,
       h("div", { class: "order-actions" }, ...actions));
@@ -733,9 +734,9 @@ async function exportOrders(button) {
   await busy(button, async () => {
     const orders = await api("/api/orders");
     downloadCsv(`pedidos-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["Pedido", "Data", "Status", "Cliente", "Telefone", "Itens", "Total (R$)", "Observações"],
+      ["Pedido", "Data", "Status", "Cliente", "Telefone", "Itens", "Cupom", "Desconto (R$)", "Total (R$)", "Observações"],
       orders.map((o) => [o.code, o.created_at, STATUS[o.status].label, o.customer_name, o.customer_phone,
-        o.items.map((i) => `${i.quantity}x ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`).join(", "), (o.total_cents / 100).toFixed(2).replace(".", ","), o.notes || ""]));
+        o.items.map((i) => `${i.quantity}x ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`).join(", "), o.coupon_code || "", (o.discount_cents / 100).toFixed(2).replace(".", ","), (o.total_cents / 100).toFixed(2).replace(".", ","), o.notes || ""]));
   });
 }
 
@@ -782,7 +783,64 @@ async function loadStore() {
     preview.style.backgroundImage = s[`${kind}_url`] ? `url("${s[`${kind}_url`]}")` : "";
     document.querySelector(`[data-remove-asset=${kind}]`).hidden = !s[`${kind}_url`];
   }
-  await loadTeam();
+  await Promise.all([loadTeam(), loadCoupons()]);
+}
+
+// ---------- Cupons ----------
+
+function couponLabel(c) {
+  const value = c.kind === "percent" ? `${c.value}% de desconto` : `${money(c.value)} de desconto`;
+  const rules = [
+    c.min_order_cents ? `pedido mínimo ${money(c.min_order_cents)}` : null,
+    c.max_uses ? `${c.uses}/${c.max_uses} usos` : `${c.uses} uso(s)`,
+    c.expires_at ? `até ${c.expires_at.split("-").reverse().join("/")}` : null,
+  ].filter(Boolean).join(" · ");
+  return { value, rules };
+}
+
+async function loadCoupons() {
+  const list = await api("/api/coupons");
+  const box = $("coupon-list");
+  if (!list.length) return empty(box, "ticket", "Nenhum cupom criado.");
+  box.replaceChildren(...list.map((c) => {
+    const { value, rules } = couponLabel(c);
+    const toggle = h("input", { type: "checkbox", "aria-label": `Cupom ${c.code} ativo` });
+    toggle.checked = c.active;
+    toggle.addEventListener("change", () => busy(null, async () => {
+      await api(`/api/coupons/${c.id}`, { method: "PATCH", body: { ...c, active: toggle.checked } });
+      toast(toggle.checked ? `Cupom ${c.code} ativado.` : `Cupom ${c.code} pausado.`);
+      await loadCoupons();
+    }));
+    return h("div", { class: `coupon ${c.active ? "" : "off"}` },
+      h("div", { class: "grow" }, h("code", { text: c.code }), " ", h("strong", { text: value }), h("small", { text: rules })),
+      h("label", { class: "check", title: "Ativo" }, toggle, h("span", { class: "sr-only", text: "Ativo" })),
+      h("button", { class: "btn btn-ghost btn-icon", "aria-label": `Excluir cupom ${c.code}`, onclick: (e) => busy(e.currentTarget, async () => {
+        if (!confirm(`Excluir o cupom ${c.code}? Pedidos que já o usaram não mudam.`)) return;
+        await api(`/api/coupons/${c.id}`, { method: "DELETE" });
+        await loadCoupons();
+      }) }, icon("trash", "icon icon-sm")));
+  }));
+}
+
+async function createCoupon(event) {
+  event.preventDefault();
+  const f = event.target.elements;
+  const kind = f.kind.value;
+  const value = kind === "percent" ? Number(String(f.value.value).replace(",", ".")) : parseMoney(f.value.value);
+  if (kind === "percent" && (!Number.isInteger(value) || value < 1 || value > 90)) return toast("Use uma porcentagem inteira entre 1 e 90.", { error: true });
+  if (kind === "fixed" && (!value || Number.isNaN(value))) return toast("Informe o valor do desconto, por exemplo 15,00.", { error: true });
+  const min = parseMoney(f.min_order.value);
+  if (Number.isNaN(min)) return toast("Pedido mínimo inválido.", { error: true });
+  await busy(event.submitter, async () => {
+    await api("/api/coupons", { method: "POST", body: {
+      code: f.code.value, kind, value, min_order_cents: min || 0,
+      max_uses: f.max_uses.value ? Number(f.max_uses.value) : null, expires_at: f.expires_at.value || null,
+    } });
+    event.target.reset();
+    $("coupon-add").open = false;
+    toast("Cupom criado. Divulgue o código para seus clientes.");
+    await loadCoupons();
+  });
 }
 
 // ---------- Equipe ----------
@@ -913,6 +971,9 @@ async function loadAudit() {
   const labels = {
     "store.created": "Loja criada", "store.settings": "Configurações alteradas", "product.created": "Produto cadastrado",
     "product.updated": "Produto alterado", "product.deleted": "Produto excluído", "order.status": "Status de pedido alterado",
+    "coupon.created": "Cupom criado", "coupon.updated": "Cupom alterado", "coupon.deleted": "Cupom excluído",
+    "team.added": "Pessoa adicionada à equipe", "team.permissions": "Permissões alteradas", "team.removed": "Pessoa removida da equipe",
+    "customer.anonymized": "Dados de cliente excluídos", "store.exported": "Dados exportados", "user.password_changed": "Senha alterada",
   };
   if (!rows.length) return empty(box, "history", "Nenhuma atividade registrada.");
   box.replaceChildren(...rows.slice(0, 50).map((r) => h("div", { class: "row" },
@@ -1034,6 +1095,30 @@ $("add-variant").addEventListener("click", () => {
   row.querySelector("input").focus();
 });
 $("team-form").addEventListener("submit", addMember);
+$("coupon-form").addEventListener("submit", createCoupon);
+
+// ---------- Aplicativo instalável e conexão ----------
+
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $("install-app").hidden = false;
+});
+window.addEventListener("appinstalled", () => {
+  $("install-app").hidden = true;
+  toast("Painel instalado. Abra pelo ícone na tela inicial.");
+});
+$("install-app").addEventListener("click", async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => null);
+  installPrompt = null;
+  $("install-app").hidden = true;
+});
+window.addEventListener("offline", () => toast("Você está sem internet. As alterações só serão salvas quando a conexão voltar.", { error: true }));
+window.addEventListener("online", () => { toast("Conexão restabelecida."); if (!$("app").hidden) route(); });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => { /* PWA opcional */ });
 $("perf-periods").addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (chip) loadPerformance(Number(chip.dataset.days)).catch(fail);

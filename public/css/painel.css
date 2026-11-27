@@ -214,3 +214,12 @@
 .top-title { margin: 18px 0 4px; font-size: .95rem; }
 .privacy-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Cupons */
+.coupon { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.coupon:last-child { border-bottom: 0; }
+.coupon .grow { flex: 1; min-width: 0; }
+.coupon code { font: 700 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--orange-50); color: #8a3f00; padding: 2px 8px; border-radius: 6px; }
+.coupon small { display: block; color: var(--muted); margin-top: 3px; }
+.coupon.off { opacity: .6; }
+.order-discount { color: var(--ok); }

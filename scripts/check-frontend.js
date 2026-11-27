@@ -8,13 +8,13 @@ import { execFileSync } from "node:child_process";
 const root = new URL("../public/", import.meta.url).pathname;
 let failures = 0;
 
-for (const file of readdirSync(join(root, "js"))) {
+for (const file of [...readdirSync(join(root, "js")).map((f) => `js/${f}`), "sw.js"]) {
   try {
-    execFileSync(process.execPath, ["--check", join(root, "js", file)], { stdio: "pipe" });
-    console.log(`ok - sintaxe js/${file}`);
+    execFileSync(process.execPath, ["--check", join(root, file)], { stdio: "pipe" });
+    console.log(`ok - sintaxe ${file}`);
   } catch (error) {
     failures++;
-    console.error(`FALHA - js/${file}\n${error.stderr}`);
+    console.error(`FALHA - ${file}\n${error.stderr}`);
   }
 }
 

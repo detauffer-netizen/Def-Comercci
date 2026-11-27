@@ -11,6 +11,8 @@ import * as team from "./routes/team.js";
 import * as admin from "./routes/admin.js";
 import * as privacy from "./routes/privacy.js";
 import * as reports from "./routes/reports.js";
+import * as coupons from "./routes/coupons.js";
+import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
 
 // [método, padrão, handler, acesso]
@@ -22,12 +24,17 @@ const ROUTES = [
   ["POST", "/api/login", auth.login, "public"],
   ["GET", "/api/store/:slug", pub.storefront, "public"],
   ["POST", "/api/order-request/:slug", pub.createOrderRequest, "public"],
+  ["POST", "/api/order-preview/:slug", pub.orderPreview, "public"],
   ["POST", "/api/logout", auth.logout, "session"],
   ["GET", "/api/me", panel.me, "session"],
   ["POST", "/api/account/password", team.changePassword, "session"],
   ["PATCH", "/api/settings", panel.updateSettings, "owner"],
   ["POST", "/api/settings/:kind", panel.uploadStoreImage, "owner"],
   ["DELETE", "/api/settings/:kind", panel.deleteStoreImage, "owner"],
+  ["GET", "/api/coupons", coupons.listCoupons, "owner"],
+  ["POST", "/api/coupons", coupons.createCoupon, "owner"],
+  ["PATCH", "/api/coupons/:id", coupons.updateCoupon, "owner"],
+  ["DELETE", "/api/coupons/:id", coupons.deleteCoupon, "owner"],
   ["GET", "/api/team", team.listTeam, "owner"],
   ["POST", "/api/team", team.addMember, "owner"],
   ["PATCH", "/api/team/:id", team.updateMember, "owner"],
@@ -56,6 +63,7 @@ const ROUTES = [
   ["GET", "/api/admin/stores", admin.listStores, "admin"],
   ["PATCH", "/api/admin/stores/:id", admin.setStoreStatus, "admin"],
   ["GET", "/api/admin/audit", admin.adminAudit, "admin"],
+  ["GET", "/api/admin/errors", admin.listErrors, "admin"],
 ].map(([method, pattern, handler, access]) => {
   const names = [];
   const regex = new RegExp(
@@ -120,9 +128,9 @@ async function handleApi(request, env, url) {
   return json({ error: pathExists ? "Método não permitido" : "Não encontrado" }, pathExists ? 405 : 404);
 }
 
-async function asset(env, request, path) {
+async function asset(env, request, path, headers = {}) {
   const response = await env.ASSETS.fetch(new Request(new URL(path, request.url), { method: "GET" }));
-  return withHeaders(response, path.endsWith(".html") ? { "Cache-Control": "no-cache" } : {});
+  return withHeaders(response, { ...(path.endsWith(".html") ? { "Cache-Control": "no-cache" } : {}), ...headers });
 }
 
 export default {
@@ -145,6 +153,7 @@ export default {
       } catch (error) {
         if (error instanceof HttpError) return withHeaders(json({ error: error.message }, error.status));
         console.error("api_error", request.method, path, error?.stack || error);
+        await recordError(env, request, error);
         return withHeaders(json({ error: "Erro interno. Tente novamente em instantes." }, 500));
       }
     }
@@ -168,6 +177,8 @@ export default {
     if (path === "/termos") return asset(env, request, "/termos.html");
     if (path === "/sitemap.xml") return withHeaders(await sitemap(env, request));
     if (path === "/robots.txt") return withHeaders(robots(request));
+    if (path === "/sw.js") return asset(env, request, "/sw.js", { "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" });
+    if (path === "/manifest.webmanifest") return asset(env, request, "/manifest.webmanifest", { "Cache-Control": "public, max-age=3600" });
     if (/^\/(css|js|icons)\/[a-z0-9._-]+$/.test(path) || path === "/favicon.svg") {
       return asset(env, request, path);
     }

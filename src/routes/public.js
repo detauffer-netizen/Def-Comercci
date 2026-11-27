@@ -98,19 +98,10 @@ export async function storefront(request, env, params) {
   );
 }
 
-export async function createOrderRequest(request, env, params) {
-  const db = env.DB;
-  await rateLimitByIp(db, request, "order-request", 20);
-  const store = await activeStore(db, params.slug);
-  if (!store) throw new HttpError(404, "Loja não encontrada");
-  const body = await readJson(request);
-  if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 30) {
-    throw new HttpError(400, "Pedido inválido");
-  }
-  const customerName = v.requiredText(body.customer_name, 100, "seu nome");
-  const customerPhone = v.phone(body.customer_phone);
-  const notes = v.cleanText(body.notes, 500, { multiline: true });
-
+// Calcula itens e subtotal com preços e estoque do banco (nunca do navegador).
+async function priceItems(db, store, list) {
+  if (!Array.isArray(list) || list.length < 1 || list.length > 30) throw new HttpError(400, "Pedido inválido");
+  const body = { items: list };
   const seen = new Set();
   const items = [];
   let total = 0;
@@ -152,12 +143,84 @@ export async function createOrderRequest(request, env, params) {
     total += line.price_cents * item.quantity;
     items.push(line);
   }
+  return { items, subtotal: total };
+}
+
+// Valida o cupom e calcula o desconto. Não consome o cupom.
+export async function couponDiscount(db, storeId, rawCode, subtotal) {
+  const code = String(rawCode ?? "").trim().toUpperCase();
+  if (!code) return { coupon: null, discount: 0 };
+  if (!/^[A-Z0-9_-]{3,30}$/.test(code)) throw new HttpError(400, "Cupom inválido");
+  const coupon = await db.prepare(
+    `SELECT id,code,kind,value,min_order_cents,max_uses,uses,expires_at FROM coupons
+      WHERE store_id=? AND code=? AND active=1`,
+  ).bind(storeId, code).first();
+  if (!coupon) throw new HttpError(400, "Cupom inválido ou inativo");
+  if (coupon.expires_at && coupon.expires_at < new Date().toISOString().slice(0, 10)) throw new HttpError(400, "Este cupom expirou");
+  if (coupon.max_uses !== null && coupon.uses >= coupon.max_uses) throw new HttpError(400, "Este cupom já atingiu o limite de usos");
+  if (subtotal < coupon.min_order_cents) {
+    throw new HttpError(400, `Este cupom vale para pedidos a partir de R$ ${(coupon.min_order_cents / 100).toFixed(2).replace(".", ",")}`);
+  }
+  const discount = coupon.kind === "percent"
+    ? Math.floor((subtotal * coupon.value) / 100)
+    : Math.min(coupon.value, subtotal);
+  return { coupon, discount };
+}
+
+export async function orderPreview(request, env, params) {
+  const db = env.DB;
+  await rateLimitByIp(db, request, "order-preview", 60);
+  const store = await activeStore(db, params.slug);
+  if (!store) throw new HttpError(404, "Loja não encontrada");
+  const body = await readJson(request);
+  const { subtotal } = await priceItems(db, store, body.items);
+  try {
+    const { coupon, discount } = await couponDiscount(db, store.id, body.coupon_code, subtotal);
+    return json({ valid: true, subtotal_cents: subtotal, discount_cents: discount, total_cents: subtotal - discount, coupon_code: coupon?.code || "" });
+  } catch (error) {
+    // Cupom recusado é uma resposta normal da prévia, não um erro da requisição.
+    if (error instanceof HttpError && error.status === 400) {
+      return json({ valid: false, error: error.message, subtotal_cents: subtotal, discount_cents: 0, total_cents: subtotal, coupon_code: "" });
+    }
+    throw error;
+  }
+}
+
+export async function createOrderRequest(request, env, params) {
+  const db = env.DB;
+  await rateLimitByIp(db, request, "order-request", 20);
+  const store = await activeStore(db, params.slug);
+  if (!store) throw new HttpError(404, "Loja não encontrada");
+  const body = await readJson(request);
+  const { items, subtotal } = await priceItems(db, store, body.items);
+  const customerName = v.requiredText(body.customer_name, 100, "seu nome");
+  const customerPhone = v.phone(body.customer_phone);
+  const notes = v.cleanText(body.notes, 500, { multiline: true });
+  const { coupon, discount } = await couponDiscount(db, store.id, body.coupon_code, subtotal);
+  // Consome o uso do cupom de forma atômica: dois pedidos simultâneos não
+  // passam do limite.
+  if (coupon) {
+    const used = await db.prepare(
+      "UPDATE coupons SET uses=uses+1 WHERE id=? AND store_id=? AND active=1 AND (max_uses IS NULL OR uses < max_uses)",
+    ).bind(coupon.id, store.id).run();
+    if (!used.meta.changes) throw new HttpError(409, "Este cupom acabou de atingir o limite de usos");
+  }
+  const total = subtotal - discount;
   const orderId = crypto.randomUUID();
-  await db
-    .prepare(
-      "INSERT INTO orders(id,store_id,items_json,total_cents,customer_name,customer_phone,notes) VALUES(?,?,?,?,?,?,?)",
-    )
-    .bind(orderId, store.id, JSON.stringify(items), total, customerName, customerPhone, notes)
-    .run();
-  return json({ id: orderId, code: orderId.slice(0, 8).toUpperCase(), total_cents: total, items }, 201);
+  try {
+    await db
+      .prepare(
+        `INSERT INTO orders(id,store_id,items_json,total_cents,subtotal_cents,discount_cents,coupon_code,customer_name,customer_phone,notes)
+         VALUES(?,?,?,?,?,?,?,?,?,?)`,
+      )
+      .bind(orderId, store.id, JSON.stringify(items), total, subtotal, discount, coupon?.code || "", customerName, customerPhone, notes)
+      .run();
+  } catch (error) {
+    if (coupon) await db.prepare("UPDATE coupons SET uses=uses-1 WHERE id=? AND uses>0").bind(coupon.id).run();
+    throw error;
+  }
+  return json({
+    id: orderId, code: orderId.slice(0, 8).toUpperCase(), subtotal_cents: subtotal, discount_cents: discount,
+    coupon_code: coupon?.code || "", total_cents: total, items,
+  }, 201);
 }

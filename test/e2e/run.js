@@ -21,13 +21,14 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR
 const { server, env, url } = await startServer();
 const browser = await chromium.launch();
 const errors = [];
+let consoleMuted = false; // durante o teste offline, falhas de rede são esperadas
 let step = "início";
 const results = [];
 
 function watch(page, label) {
   page.on("console", (msg) => {
     // O 401 de /api/me sem sessão é esperado (é assim que o painel sabe que deve mostrar o login).
-    if (msg.type() === "error" && !/status of 401/.test(msg.text())) errors.push(`${label}: ${msg.text()}`);
+    if (msg.type() === "error" && !consoleMuted && !/status of 401/.test(msg.text())) errors.push(`${label}: ${msg.text()}`);
   });
   page.on("pageerror", (err) => errors.push(`${label}: ${err.message}`));
   page.on("dialog", (d) => d.accept());
@@ -325,6 +326,7 @@ try {
     await adminLogin.getByRole("button", { name: "Entrar" }).click();
     const row = admin.locator("#stores tr", { hasText: "Moda da Ana" });
     await row.waitFor();
+    await admin.locator("#errors-summary", { hasText: "erro(s) nas últimas 24 horas" }).waitFor();
     await shot(admin, "12-admin-desktop");
     await row.getByRole("button", { name: "Suspender" }).click();
     await admin.locator("#suspend-dialog").getByLabel("Motivo").fill("Teste de suspensão");
@@ -383,6 +385,67 @@ try {
     await panel.locator(".order", { hasText: "Nina Alerta" }).waitFor();
     assert.match(await panel.title(), /^\(\d+\) /);
     assert.equal(await panel.locator("#pending-badge").isVisible(), true);
+  });
+
+  await check("cupom criado no painel dá desconto na vitrine e aparece no pedido", async () => {
+    await panel.goto(url + "/painel#loja");
+    await panel.locator("#coupons-card summary").click();
+    const form = panel.locator("#coupon-form");
+    await form.getByLabel("Código").fill("promo10");
+    await form.getByLabel("Desconto", { exact: true }).fill("10");
+    await form.getByRole("button", { name: "Criar cupom" }).click();
+    await panel.locator("#coupon-list .coupon", { hasText: "PROMO10" }).waitFor();
+    await noHorizontalScroll(panel, "cupons");
+
+    whatsappUrl = "";
+    await shop.goto(url + "/loja/moda-da-ana");
+    const card = shop.locator("#products .product", { hasText: "Camiseta Básica" });
+    await card.getByRole("button", { name: "Escolher opção" }).click();
+    await shop.locator("#product-dialog").getByRole("radio", { name: "P / Azul" }).click();
+    await shop.locator("#product-dialog").getByRole("button", { name: "Adicionar ao pedido" }).click();
+    await shop.locator("#cart-bar").click();
+    const cart = shop.locator("#cart-dialog");
+    await cart.locator("#coupon-input").fill("PROMOERRADO");
+    await cart.getByRole("button", { name: "Aplicar" }).click();
+    await cart.locator("#coupon-msg.error").waitFor();
+    await cart.locator("#coupon-input").fill("promo10");
+    await cart.locator("#coupon-input").press("Enter");
+    await cart.locator("#coupon-msg.ok").waitFor();
+    assert.match(await cart.locator("#cart-disc-value").textContent(), /5,99/);
+    assert.match(await cart.locator("#cart-sum").textContent(), /53,91/);
+    await noDialogOverflow(cart, "carrinho com cupom");
+    await shot(shop, "14-cupom-mobile");
+    await cart.getByLabel("Nome").fill("Rita Cupom");
+    await cart.getByLabel("Telefone / WhatsApp").fill("(54) 95555-4444");
+    await cart.getByRole("button", { name: "Enviar pedido pelo WhatsApp" }).click();
+    await shop.waitForURL(/wa\.me/);
+    const text = decodeURIComponent(whatsappUrl);
+    assert.match(text, /Cupom PROMO10: − R\$\s?5,99/);
+    assert.match(text, /Total: R\$\s?53,91/);
+    await panel.goto(url + "/painel#pedidos");
+    const order = panel.locator(".order", { hasText: "Rita Cupom" });
+    await order.waitFor();
+    assert.match(await order.textContent(), /Cupom PROMO10/);
+  });
+
+  await check("painel instalável: manifesto, service worker e abertura sem internet", async () => {
+    await panel.goto(url + "/painel#inicio");
+    assert.equal(await panel.locator('link[rel="manifest"]').getAttribute("href"), "/manifest.webmanifest");
+    const active = await panel.evaluate(() => navigator.serviceWorker.ready.then((r) => !!r.active));
+    assert.equal(active, true);
+    await panel.reload(); // garante que o painel já passou pelo service worker
+    await panel.locator("#app").waitFor();
+    consoleMuted = true;
+    await mobile.setOffline(true);
+    try {
+      await panel.reload();
+      await panel.locator("#auth-error", { hasText: "Sem conexão" }).waitFor();
+    } finally {
+      await mobile.setOffline(false);
+      consoleMuted = false;
+    }
+    await panel.reload();
+    await panel.locator("#app").waitFor();
   });
 
   await check("gráfico de vendas por dia com dica, períodos e tabela", async () => {

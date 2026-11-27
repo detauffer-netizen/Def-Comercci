@@ -22,8 +22,9 @@ export async function exportData(request, env, session) {
     products: await all(db, "SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured,active FROM products WHERE store_id=?", id),
     variants: await all(db, "SELECT id,product_id,name,sku,price_cents,stock,active,position FROM product_variants WHERE store_id=?", id),
     images: await all(db, "SELECT product_id,r2_key,content_type,bytes,created_at FROM product_images WHERE store_id=?", id),
-    orders: (await all(db, "SELECT id,items_json,total_cents,status,created_at,customer_name,customer_phone,notes FROM orders WHERE store_id=? ORDER BY created_at", id))
+    orders: (await all(db, "SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes FROM orders WHERE store_id=? ORDER BY created_at", id))
       .map(({ items_json, ...o }) => ({ ...o, items: JSON.parse(items_json) })),
+    coupons: await all(db, "SELECT code,kind,value,min_order_cents,max_uses,uses,expires_at,active,created_at FROM coupons WHERE store_id=?", id),
     stock_movements: await all(db, "SELECT product_id,product_name,delta,stock_after,created_at FROM stock_movements WHERE store_id=? ORDER BY id", id),
     audit_log: await all(db, "SELECT action,target,detail,created_at FROM audit_log WHERE store_id=? ORDER BY id", id),
   };
@@ -54,6 +55,7 @@ export async function deleteStore(request, env, session) {
     db.prepare("DELETE FROM product_variants WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM products WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM orders WHERE store_id=?").bind(id),
+    db.prepare("DELETE FROM coupons WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM stock_movements WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM audit_log WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM memberships WHERE store_id=?").bind(id),
