@@ -12,6 +12,7 @@ import * as admin from "./routes/admin.js";
 import * as privacy from "./routes/privacy.js";
 import * as reports from "./routes/reports.js";
 import * as coupons from "./routes/coupons.js";
+import * as twofactor from "./routes/twofactor.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
 
@@ -22,12 +23,17 @@ import { robots, sitemap, storefrontPage } from "./lib/seo.js";
 const ROUTES = [
   ["POST", "/api/register", auth.register, "public"],
   ["POST", "/api/login", auth.login, "public"],
+  ["POST", "/api/login/2fa", twofactor.loginSecondStep, "public"],
   ["GET", "/api/store/:slug", pub.storefront, "public"],
   ["POST", "/api/order-request/:slug", pub.createOrderRequest, "public"],
   ["POST", "/api/order-preview/:slug", pub.orderPreview, "public"],
   ["POST", "/api/logout", auth.logout, "session"],
   ["GET", "/api/me", panel.me, "session"],
   ["POST", "/api/account/password", team.changePassword, "session"],
+  ["GET", "/api/account/2fa", twofactor.status, "session"],
+  ["POST", "/api/account/2fa/setup", twofactor.setup, "session"],
+  ["POST", "/api/account/2fa/enable", twofactor.enable, "session"],
+  ["POST", "/api/account/2fa/disable", twofactor.disable, "session"],
   ["PATCH", "/api/settings", panel.updateSettings, "owner"],
   ["POST", "/api/settings/:kind", panel.uploadStoreImage, "owner"],
   ["DELETE", "/api/settings/:kind", panel.deleteStoreImage, "owner"],
@@ -45,6 +51,7 @@ const ROUTES = [
   ["DELETE", "/api/products/:id", panel.deleteProduct, "products"],
   ["POST", "/api/products/:id/images", panel.uploadProductImage, "products"],
   ["DELETE", "/api/products/:id/images/:imageId", panel.deleteProductImage, "products"],
+  ["PUT", "/api/products/:id/images/order", panel.reorderProductImages, "products"],
   ["GET", "/api/stock-movements", panel.stockMovements, "products"],
   ["GET", "/api/orders", panel.listOrders, "orders"],
   ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
@@ -59,6 +66,10 @@ const ROUTES = [
   ["POST", "/api/admin/logout", auth.logout, "admin"],
   ["GET", "/api/admin/me", admin.adminMe, "admin"],
   ["POST", "/api/admin/password", team.changePassword, "admin"],
+  ["GET", "/api/admin/2fa", twofactor.status, "admin"],
+  ["POST", "/api/admin/2fa/setup", twofactor.setup, "admin"],
+  ["POST", "/api/admin/2fa/enable", twofactor.enable, "admin"],
+  ["POST", "/api/admin/2fa/disable", twofactor.disable, "admin"],
   ["GET", "/api/admin/overview", admin.overview, "admin"],
   ["GET", "/api/admin/stores", admin.listStores, "admin"],
   ["PATCH", "/api/admin/stores/:id", admin.setStoreStatus, "admin"],
@@ -112,7 +123,7 @@ async function handleApi(request, env, url) {
       const adminSession = await loadAdminSession(env.DB, request);
       if (!adminSession) return json({ error: "Acesso restrito à administração da plataforma." }, 401);
       // changePassword e logout esperam session.user
-      return route.handler(request, env, { ...adminSession, user: { id: adminSession.admin.id } }, params);
+      return route.handler(request, env, { ...adminSession, user: { id: adminSession.admin.id }, store: null }, params);
     }
     const session = await loadSession(env.DB, request);
     if (!session) return json({ error: "Sua sessão expirou. Entre novamente." }, 401);

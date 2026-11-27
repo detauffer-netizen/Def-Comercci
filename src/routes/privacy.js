@@ -65,6 +65,10 @@ export async function deleteStore(request, env, session) {
          AND user_id NOT IN (SELECT user_id FROM memberships) AND user_id NOT IN (SELECT user_id FROM platform_admins)`,
     ).bind(membersJson),
     db.prepare(
+      `DELETE FROM login_challenges WHERE user_id IN (SELECT value FROM json_each(?))
+         AND user_id NOT IN (SELECT user_id FROM memberships) AND user_id NOT IN (SELECT user_id FROM platform_admins)`,
+    ).bind(membersJson),
+    db.prepare(
       `DELETE FROM users WHERE id IN (SELECT value FROM json_each(?))
          AND id NOT IN (SELECT user_id FROM memberships) AND id NOT IN (SELECT user_id FROM platform_admins)`,
     ).bind(membersJson),
