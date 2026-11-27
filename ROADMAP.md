@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 87 testes de API/integração + 25 verificações E2E em navegador
+- ✅ 96 testes de API/integração + 26 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -23,7 +23,8 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Bucket R2 `def-commerce-images` criado e ligado ao Worker (binding `IMAGES`)
 - ✅ Variações (tamanho/cor/modelo) com SKU, preço e estoque próprios; gerador de combinações; estoque do produto = soma das variações; gatilhos de pedido atualizados
 - ✅ Ordem manual dos produtos na vitrine (destaques sempre no topo)
-- ⬜ Reordenar fotos; categorias gerenciadas com ordem e imagem
+- ✅ Reordenar fotos (escolher a capa)
+- ⬜ Categorias gerenciadas com ordem e imagem
 - ⬜ Catálogo em PDF / página de catálogo para impressão
 
 ## Fase 3 — Painel profissional 🟡
@@ -67,7 +68,7 @@ Cloudflare, sem chave extra) para texto e visão, ou a API da Anthropic.
 - ✅ Registro de operações de toda a plataforma
 - ✅ Script `scripts/create-admin.js` para criar o primeiro administrador
 - ✅ Monitoramento de erros do servidor na administração (últimas 24 h/7 dias, agrupados por rota e mensagem, sem dados pessoais)
-- ⬜ 2FA para administradores
+- ✅ Verificação em duas etapas (TOTP) para lojistas, equipe e administradores, com códigos de recuperação
 - ⬜ Planos, assinaturas e uso de IA (dependem das Fases 4 e 7)
 - ⬜ Alertas de erro por e-mail (depende de provedor)
 
@@ -85,7 +86,8 @@ Preços e provedor de pagamento dependem do proprietário.
 - ✅ CI no GitHub Actions
 - ✅ Política de Privacidade e Termos de Uso publicados (`/privacidade`, `/termos`) — ⛔ revisão jurídica e dados do controlador/encarregado pendentes
 - ✅ LGPD: exportação de todos os dados da loja (JSON), exclusão definitiva da loja (com imagens e equipe) e anonimização de compradores
-- ⬜ 2FA; monitoramento de erros com alertas
+- ✅ Verificação em duas etapas (TOTP, RFC 6238) com proteção contra reutilização de código e códigos de recuperação
+- ⬜ Alertas de erro por e-mail
 
 ## Fase 9 — Design e experiência 🟡
 
