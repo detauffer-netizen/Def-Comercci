@@ -150,6 +150,23 @@
           <div id="dash-tips" class="tips"></div>
         </div>
       </section>
+      <section class="card" id="expense-card" aria-labelledby="h-expenses">
+        <div class="card-head"><h2 id="h-expenses">Despesas</h2><span class="muted" id="expense-total"></span></div>
+        <p class="muted expense-intro">Registre gastos como aluguel, embalagens e fretes para ver o resultado do período.</p>
+        <details class="advanced" id="expense-box">
+          <summary>Registrar despesa</summary>
+          <form id="expense-form" novalidate>
+            <div class="grid-2">
+              <label class="field"><span>Descrição</span><input name="description" maxlength="120" required placeholder="Ex.: Sacolas"></label>
+              <label class="field"><span>Valor (R$)</span><input name="amount" inputmode="decimal" placeholder="0,00" required></label>
+              <label class="field"><span>Categoria</span><input name="category" maxlength="60" list="expense-categories" placeholder="Opcional"><datalist id="expense-categories"><option value="Aluguel"><option value="Embalagens"><option value="Frete"><option value="Energia e internet"><option value="Marketing"><option value="Taxas"><option value="Salários"></datalist></label>
+              <label class="field"><span>Data do pagamento</span><input name="paid_on" type="date" required></label>
+            </div>
+            <button class="btn btn-blue btn-sm">Salvar despesa</button>
+          </form>
+        </details>
+        <div id="expense-list"></div>
+      </section>
       <section class="card perf" id="perf-card" aria-labelledby="h-perf" hidden>
         <div class="card-head perf-head">
           <h2 id="h-perf">Vendas por dia</h2>
@@ -217,6 +234,7 @@
         <button class="chip" data-status="completed" aria-pressed="false">Concluídos</button>
         <button class="chip" data-status="cancelled" aria-pressed="false">Cancelados</button>
         <button class="chip" data-status="pos" aria-pressed="false">No balcão</button>
+        <button class="chip" data-status="receivable" aria-pressed="false">A receber</button>
         <button class="chip" data-status="abandoned" aria-pressed="false">Carrinhos abandonados</button>
       </div>
       <div id="order-list" class="order-list"></div>
@@ -416,6 +434,36 @@
   </div>
 </dialog>
 
+<dialog id="return-dialog" aria-labelledby="return-title">
+  <form id="return-form" novalidate>
+    <div class="dialog-head"><h2 id="return-title">Devolução</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <p class="muted" id="return-intro"></p>
+      <div id="return-items" class="sale-items"></div>
+      <label class="check"><input type="checkbox" name="restock" checked> <span>Devolver os itens ao estoque</span></label>
+      <label class="field"><span>Motivo (opcional)</span><input name="reason" maxlength="200" placeholder="Ex.: tamanho errado, defeito"></label>
+      <p id="return-value" class="margin-info" role="status"></p>
+      <p id="return-error" class="form-error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="confirm-return">Registrar devolução</button></div>
+  </form>
+</dialog>
+
+<dialog id="receive-dialog" aria-labelledby="receive-title">
+  <form id="receive-form" novalidate>
+    <div class="dialog-head"><h2 id="receive-title">Receber pagamento</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <p class="muted" id="receive-intro"></p>
+      <div class="grid-2">
+        <label class="field"><span>Valor recebido (R$)</span><input name="amount" inputmode="decimal" required></label>
+        <label class="field"><span>Forma de pagamento</span><select name="method" class="input"><option value="pix">Pix</option><option value="cash">Dinheiro</option><option value="credit">Crédito</option><option value="debit">Débito</option></select></label>
+      </div>
+      <p id="receive-error" class="form-error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary">Confirmar recebimento</button></div>
+  </form>
+</dialog>
+
 <dialog id="product-dialog" aria-labelledby="product-dialog-title">
   <form id="product-form" method="dialog" novalidate>
     <div class="dialog-head"><h2 id="product-dialog-title">Novo produto</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
@@ -453,6 +501,17 @@
           <label class="field"><span>Onde fica na loja</span><input name="location" maxlength="60" placeholder="Ex.: Prateleira A2"></label>
         </div>
         <p class="margin-info" id="margin-info" role="status"></p>
+        <details class="calc" id="price-calc">
+          <summary>Calculadora de preço de venda</summary>
+          <p class="muted calc-intro">Informe o custo acima e os percentuais. O preço cobre o custo, as taxas, as despesas variáveis e a margem desejada sobre a venda.</p>
+          <div class="grid-3">
+            <label class="field"><span>Taxas (%)</span><input id="calc-fees" inputmode="decimal" placeholder="Ex.: 4,99"></label>
+            <label class="field"><span>Despesas variáveis (%)</span><input id="calc-costs" inputmode="decimal" placeholder="Ex.: 5"></label>
+            <label class="field"><span>Margem desejada (%)</span><input id="calc-margin" inputmode="decimal" placeholder="Ex.: 30"></label>
+          </div>
+          <p id="calc-result" class="margin-info" role="status"></p>
+          <button type="button" class="btn btn-ghost btn-sm" id="calc-apply" hidden>Usar este preço</button>
+        </details>
       </details>
       <fieldset class="variants">
         <label class="check"><input type="checkbox" id="has-variants"> <span>Este produto tem opções (tamanho, cor, modelo...)</span></label>

@@ -2,6 +2,20 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.5.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 3: financeiro
+
+### Adicionado
+- **Contas a receber** (Vendas → "A receber"): lista das vendas a prazo em aberto, baixa parcial ou total com a forma de pagamento e lembrete pronto pelo WhatsApp. A baixa é atômica: nunca passa do saldo, nem com dois cliques ao mesmo tempo.
+- **Devoluções** de vendas concluídas (balcão ou catálogo), parciais ou totais: escolha das quantidades, opção de devolver ao estoque (ou não, se o item veio avariado) e motivo. O banco garante que nunca se devolve mais do que foi vendido. O desconto da venda é rateado; numa venda a prazo, a devolução abate primeiro o valor a receber.
+- **Despesas** (Início): registro com descrição, categoria, valor e data; lista e total do período.
+- **Resumo:** faturamento já descontadas as devoluções, lucro bruto descontando devoluções, **resultado estimado** (lucro bruto − despesas), **a receber** e valor do estoque a preço de venda.
+- **Calculadora de preço de venda** no cadastro: custo, taxas, despesas variáveis e margem desejada → preço sugerido e markup equivalente; "Usar este preço" preenche o campo para revisão.
+- Exportação de dados e exclusão da loja incluem devoluções, recebimentos e despesas.
+
+### Técnico
+- Migração 0019 (`receivable_payments`, `expenses`, `order_returns` e os gatilhos `order_return_guard`/`order_return_restock`). Rotas: `GET/POST /api/receivables`, `POST /api/orders/:id/returns` (pedidos) e `GET/POST/DELETE /api/expenses` (indicadores).
+- 6 testes de API novos (146 no total) e 1 fluxo E2E novo (31 verificações).
+
 ## [1.4.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 2: PDV (venda no balcão)
 
 ### Adicionado

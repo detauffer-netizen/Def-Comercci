@@ -354,3 +354,14 @@
   body.printing-receipt #sale-dialog .dialog-head, body.printing-receipt #sale-dialog .receipt-actions, body.printing-receipt #sale-dialog::backdrop { display: none !important; }
   body.printing-receipt .receipt-ok { display: none; }
 }
+
+/* Financeiro */
+.expense-intro { margin: 0 0 10px; font-size: 14px; }
+#expense-form .btn { margin-bottom: 4px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 10px; }
+@media (max-width: 520px) { .grid-3 { grid-template-columns: minmax(0, 1fr); } }
+.calc { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.calc summary { cursor: pointer; font-weight: 600; color: var(--blue-600); }
+.calc-intro { font-size: 13.5px; margin: 8px 0; }
+.returned { color: var(--danger); font-size: 13px; }
+.receivable-row .grow small { display: block; }

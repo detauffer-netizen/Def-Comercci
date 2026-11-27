@@ -190,7 +190,7 @@ try {
     await panel.locator("#product-list .filter-banner", { hasText: "Sem preço de custo" }).waitFor();
     await panel.locator("#product-list .product-item").first().click();
     const pf = panel.locator("#product-form");
-    await pf.locator("#product-advanced summary").click();
+    await pf.locator("#product-advanced > summary").click();
     await pf.getByLabel("Preço de custo (R$)").fill("50,00");
     await pf.locator("#margin-info", { hasText: "margem" }).waitFor();
     await pf.getByLabel("Fornecedor").fill("Ateliê Central");
@@ -722,6 +722,54 @@ try {
     await panel.locator("#order-filters").getByRole("button", { name: "No balcão" }).click();
     await panel.locator(".order", { hasText: "Caneca Balcão" }).filter({ hasText: "Balcão" }).waitFor();
     await panel.locator("#order-filters").getByRole("button", { name: "Todos" }).click();
+  });
+
+  await check("financeiro: devolução, conta a prazo, despesa e calculadora de preço", async () => {
+    const api = (path, data) => panel.request.post(url + path, { headers: { Origin: url, "Content-Type": "application/json" }, data });
+    // Devolução da venda no balcão do passo anterior.
+    await panel.goto(url + "/painel#pedidos");
+    await panel.locator("#order-filters").getByRole("button", { name: "No balcão" }).click();
+    const sold = panel.locator(".order", { hasText: "Caneca Balcão" }).first();
+    await sold.getByRole("button", { name: "Devolução" }).click();
+    const ret = panel.locator("#return-dialog");
+    await ret.getByRole("button", { name: "Aumentar devolução de Caneca Balcão" }).click();
+    await ret.locator("#return-value", { hasText: "R$" }).waitFor();
+    await ret.getByRole("button", { name: "Registrar devolução" }).click();
+    await panel.locator(".order", { hasText: "1 devolvido(s)" }).first().waitFor();
+    const caneca = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Caneca Balcão");
+    assert.equal(caneca.stock, 4);
+    // Venda a prazo e recebimento.
+    const sale = await api("/api/sales", { id: crypto.randomUUID(), items: [{ id: caneca.id, quantity: 1 }], customer_name: "Seu Jorge", customer_phone: "54988881111", payments: [{ method: "account", amount_cents: 2500 }] });
+    assert.equal(sale.status(), 201);
+    await panel.locator("#order-filters").getByRole("button", { name: "A receber" }).click();
+    const row = panel.locator(".receivable-row", { hasText: "Seu Jorge" });
+    await row.getByRole("button", { name: "Receber" }).click();
+    await panel.locator("#receive-dialog").getByRole("button", { name: "Confirmar recebimento" }).click();
+    await panel.locator("#order-list", { hasText: "Nenhuma venda a prazo em aberto" }).waitFor();
+    await panel.locator("#order-filters").getByRole("button", { name: "Todos" }).click();
+    // Despesa no resumo.
+    await panel.goto(url + "/painel#inicio");
+    await panel.locator("#expense-box summary").click();
+    const ef = panel.locator("#expense-form");
+    await ef.getByLabel("Descrição").fill("Sacolas");
+    await ef.getByLabel("Valor (R$)").fill("12,50");
+    await ef.getByRole("button", { name: "Salvar despesa" }).click();
+    await panel.locator("#expense-list .row", { hasText: "Sacolas" }).waitFor();
+    await panel.locator("#kpis .kpi", { hasText: "Resultado estimado" }).filter({ hasText: "12,50" }).waitFor();
+    await noHorizontalScroll(panel, "financeiro");
+    // Calculadora de preço no cadastro.
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator(".product-item", { hasText: "Caneca Balcão" }).click();
+    const pf = panel.locator("#product-form");
+    // A seção já abre sozinha quando o produto tem código de barras.
+    if (!(await pf.locator("#product-advanced").evaluate((d) => d.open))) await pf.locator("#product-advanced > summary").click();
+    await pf.getByLabel("Preço de custo (R$)").fill("10,00");
+    await pf.locator("#price-calc summary").click();
+    await pf.getByLabel("Margem desejada (%)").fill("50");
+    await pf.locator("#calc-result", { hasText: "R$ 20,00" }).waitFor();
+    await pf.getByRole("button", { name: "Usar este preço" }).click();
+    assert.equal(await pf.getByLabel("Preço (R$)").inputValue(), "20,00");
+    await pf.getByRole("button", { name: "Cancelar" }).click();
   });
 
   await check("logout encerra a sessão", async () => {

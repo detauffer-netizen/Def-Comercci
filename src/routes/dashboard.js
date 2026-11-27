@@ -50,17 +50,34 @@ async function salesTotals(db, storeId, start, end) {
                FROM orders o, json_each(o.items_json) j
               WHERE o.store_id=? AND ${SOLD} AND ${LOCAL_DAY} BETWEEN ? AND ?)`,
   ).bind(storeId, start, end).first();
+  const returns = await db.prepare(
+    `SELECT COALESCE(SUM(value_cents),0) AS value, COALESCE(SUM(value_with_cost_cents),0) AS value_with_cost,
+            COALESCE(SUM(cost_cents),0) AS cost, COUNT(*) AS n
+       FROM order_returns WHERE store_id=? AND date(created_at,'-3 hours') BETWEEN ? AND ?`,
+  ).bind(storeId, start, end).first();
+  const expenses = (await db.prepare(
+    "SELECT COALESCE(SUM(amount_cents),0) AS cents FROM expenses WHERE store_id=? AND paid_on BETWEEN ? AND ?",
+  ).bind(storeId, start, end).first()).cents;
   // Lucro bruto só sobre os itens com custo informado; o desconto é rateado.
+  // Devoluções do período tiram a receita e devolvem o custo dos itens.
   const coverage = lines.items_revenue ? lines.revenue_with_cost / lines.items_revenue : 0;
   const discountShare = lines.items_revenue ? Math.round(orders.discounts * coverage) : 0;
-  const gross = lines.revenue_with_cost - lines.cogs - discountShare;
+  const gross = lines.revenue_with_cost - lines.cogs - discountShare - (returns.value_with_cost - returns.cost);
+  const grossProfit = lines.revenue_with_cost ? gross : null;
   return {
     ...orders,
     average_ticket: orders.sales ? Math.round(orders.revenue / orders.sales) : 0,
     items_revenue: lines.items_revenue,
-    cogs: lines.cogs,
-    gross_profit: lines.revenue_with_cost ? gross : null,
+    cogs: lines.cogs - returns.cost,
+    returns_cents: returns.value,
+    returns_count: returns.n,
+    net_revenue: orders.revenue - returns.value,
+    gross_profit: grossProfit,
     cost_coverage: Math.round(coverage * 100),
+    expenses_cents: expenses,
+    // Resultado = lucro bruto − despesas registradas. É estimativa: depende
+    // de custos e despesas estarem completos.
+    result_cents: grossProfit === null ? null : grossProfit - expenses,
   };
 }
 
