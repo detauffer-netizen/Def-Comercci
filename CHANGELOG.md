@@ -2,6 +2,13 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.9.0] — 2026-11-27 — Ordem das categorias e catálogo em PDF
+
+### Adicionado
+- **Ordem das categorias**: em Produtos, o lojista define a ordem das categorias exibidas na vitrine e no catálogo.
+- **Catálogo para imprimir ou salvar em PDF** (`/loja/<loja>/catalogo`, sem indexação): folha A4 com logotipo, produtos por categoria, fotos, preços, opções, esgotados, WhatsApp e endereço da vitrine. Link em "Minha loja".
+- Migração 0013; 2 testes de API novos (98 no total) e 1 verificação E2E nova (27 no total).
+
 ## [0.8.0] — 2026-11-27 — Verificação em duas etapas e capa das fotos
 
 ### Adicionado
