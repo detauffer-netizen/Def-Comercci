@@ -70,8 +70,8 @@ Ou pelo GitHub Actions: workflow **Deploy** (manual), que testa, faz backup do D
 migra, publica e verifica `/api/health`. Requer os segredos `CLOUDFLARE_API_TOKEN` e
 `CLOUDFLARE_ACCOUNT_ID` no repositório.
 
-Para ativar imagens: `npx wrangler r2 bucket create def-commerce-images` e
-descomentar o bloco `[[r2_buckets]]` em `wrangler.toml`.
+Imagens: bucket R2 `def-commerce-images` (binding `IMAGES`, já configurado no
+`wrangler.toml`).
 
 ## Rollback
 
