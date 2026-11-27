@@ -645,6 +645,34 @@ try {
     await noHorizontalScroll(panel, "divulgação IA");
   });
 
+  await check("carrinho abandonado com autorização aparece no painel para chamar no WhatsApp", async () => {
+    const buyerCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const page = await buyerCtx.newPage();
+    watch(page, "carrinho");
+    await page.goto(url + "/loja/moda-da-ana");
+    const card = page.locator("#products .product", { hasText: "Vestido Floral" });
+    await card.getByRole("button", { name: "Adicionar" }).click();
+    await page.locator("#cart-bar").click();
+    const dialog = page.locator("#cart-dialog");
+    await dialog.getByLabel("Nome").fill("Lia Indecisa");
+    await dialog.getByLabel("Telefone / WhatsApp").fill("(54) 97777-1111");
+    const saved = page.waitForResponse((r) => r.url().includes("/api/cart-reminder/") && r.request().method() === "PUT");
+    await dialog.getByLabel(/a loja pode me chamar no WhatsApp/).check();
+    assert.equal((await saved).status(), 200);
+    await buyerCtx.close();
+    // Simula a passagem de 40 minutos.
+    await env.DB.prepare("UPDATE abandoned_carts SET updated_at=datetime('now','-40 minutes')").run();
+    await panel.goto(url + "/painel#pedidos");
+    await panel.locator("#order-filters").getByRole("button", { name: "Carrinhos abandonados" }).click();
+    const item = panel.locator(".order.abandoned", { hasText: "Lia Indecisa" });
+    await item.waitFor();
+    assert.match(await item.getByRole("link", { name: "Chamar no WhatsApp" }).getAttribute("href"), /^https:\/\/wa\.me\/5554977771111\?text=.*Vestido%20Floral/);
+    await noHorizontalScroll(panel, "carrinhos abandonados");
+    await item.getByRole("button", { name: "Descartar" }).click();
+    await panel.locator("#order-list", { hasText: "Nenhum carrinho abandonado" }).waitFor();
+    await panel.locator("#order-filters").getByRole("button", { name: "Todos" }).click();
+  });
+
   await check("logout encerra a sessão", async () => {
     await panel.getByRole("button", { name: "Sair" }).click();
     await panel.locator("#auth").waitFor();

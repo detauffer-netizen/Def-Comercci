@@ -2,6 +2,16 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.2.0-beta] — 2026-11-27 — Recuperação de carrinho abandonado
+
+### Adicionado
+- **Autorização no carrinho** (desmarcada por padrão): "Se eu não finalizar, a loja pode me chamar no WhatsApp sobre este carrinho". Sem ela, nada é enviado ao servidor.
+- Com a autorização, o carrinho (nome, telefone e itens com preços do banco) é guardado e atualizado enquanto o comprador monta o pedido; desmarcar apaga na hora.
+- **Pedidos → Carrinhos abandonados** (permissão de pedidos): carrinhos parados há mais de 30 minutos, com botão "Chamar no WhatsApp" (mensagem pronta com os itens e o total) e "Descartar" (apaga os dados).
+- Ao finalizar o pedido, o carrinho é apagado; se a loja já tinha chamado o comprador, fica só a contagem de "recuperados", sem dados pessoais.
+- Retenção de 7 dias; incluído na exportação de dados, na exclusão da loja e na anonimização do cliente. Política de Privacidade atualizada (base legal: consentimento).
+- Migração 0016; 7 testes de API novos (127 no total) e 1 verificação E2E nova (29 no total).
+
 ## [1.1.0-beta] — 2026-11-27 — Planos e pagamentos com Mercado Pago
 
 ### Adicionado

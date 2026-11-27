@@ -35,6 +35,7 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 - O lojista concorda com o tratamento ao criar a loja.
 - IPs não são armazenados em texto claro (apenas hashes temporários para limitação de abuso, apagados em até 20 minutos).
 - Política de Privacidade (`/privacidade`) e Termos de Uso (`/termos`) publicados; o cadastro do lojista exige o aceite.
+- Carrinho abandonado só é guardado com consentimento explícito do comprador (caixa desmarcada por padrão), revogável na hora; apagado em 7 dias, ao finalizar o pedido ou ao ser descartado pela loja.
 - Direitos do titular: o lojista exporta todos os dados da loja e pode excluí-la definitivamente (exige senha e o endereço da loja); o lojista anonimiza compradores a pedido deles.
 - Pendentes: identificação do controlador e canal do encarregado (DPO), revisão jurídica dos textos e prazo de retenção de pedidos.
 

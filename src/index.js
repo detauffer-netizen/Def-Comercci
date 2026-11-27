@@ -14,6 +14,7 @@ import * as reports from "./routes/reports.js";
 import * as coupons from "./routes/coupons.js";
 import * as twofactor from "./routes/twofactor.js";
 import * as ai from "./routes/ai.js";
+import * as carts from "./routes/carts.js";
 import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
@@ -29,6 +30,8 @@ const ROUTES = [
   ["GET", "/api/store/:slug", pub.storefront, "public"],
   ["POST", "/api/order-request/:slug", pub.createOrderRequest, "public"],
   ["POST", "/api/order-preview/:slug", pub.orderPreview, "public"],
+  ["PUT", "/api/cart-reminder/:slug", carts.saveCartReminder, "public"],
+  ["DELETE", "/api/cart-reminder/:slug/:token", carts.deleteCartReminder, "public"],
   ["POST", "/api/billing/webhook/mercadopago", billing.mercadoPagoWebhook, "public"],
   ["GET", "/api/billing", billing.billingStatus, "owner"],
   ["POST", "/api/billing/subscribe", billing.subscribe, "owner"],
@@ -70,6 +73,8 @@ const ROUTES = [
   ["GET", "/api/orders", panel.listOrders, "orders"],
   ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
   ["GET", "/api/notifications", panel.notifications, "orders"],
+  ["GET", "/api/abandoned-carts", carts.listAbandonedCarts, "orders"],
+  ["PATCH", "/api/abandoned-carts/:id", carts.updateAbandonedCart, "orders"],
   ["GET", "/api/customers", panel.listCustomers, "customers"],
   ["DELETE", "/api/customers/:phone", privacy.forgetCustomer, "customers"],
   ["GET", "/api/metrics", panel.metrics, "reports"],

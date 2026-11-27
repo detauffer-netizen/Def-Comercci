@@ -4,13 +4,14 @@ import { HttpError, json, readJson } from "../lib/http.js";
 import { rateLimitByIp } from "../lib/session.js";
 import { imageUrl } from "../lib/images.js";
 import * as v from "../lib/validate.js";
+import { markCartOrdered } from "./carts.js";
 
 export function effectivePrice(product) {
   const promo = product.promo_price_cents;
   return promo !== null && promo !== undefined && promo < product.price_cents ? promo : product.price_cents;
 }
 
-async function activeStore(db, slug) {
+export async function activeStore(db, slug) {
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) return null;
   return db
     .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key,delivery_fee_cents,free_delivery_above_cents,pickup_enabled,category_order FROM stores WHERE slug=? AND status='active'")
@@ -101,7 +102,7 @@ export async function storefront(request, env, params) {
 }
 
 // Calcula itens e subtotal com preços e estoque do banco (nunca do navegador).
-async function priceItems(db, store, list) {
+export async function priceItems(db, store, list) {
   if (!Array.isArray(list) || list.length < 1 || list.length > 30) throw new HttpError(400, "Pedido inválido");
   const body = { items: list };
   const seen = new Set();
@@ -261,6 +262,7 @@ export async function createOrderRequest(request, env, params) {
     if (coupon) await db.prepare("UPDATE coupons SET uses=uses-1 WHERE id=? AND uses>0").bind(coupon.id).run();
     throw error;
   }
+  await markCartOrdered(db, store.id, body.cart_token, orderId);
   return json({
     id: orderId, code: orderId.slice(0, 8).toUpperCase(), subtotal_cents: subtotal, discount_cents: discount,
     coupon_code: coupon?.code || "", fulfillment: ship.fulfillment, delivery_fee_cents: ship.fee, address: ship.address,

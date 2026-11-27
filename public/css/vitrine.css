@@ -101,3 +101,6 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .ship-opt b, .ship-opt small { display: block; }
 .ship-opt small { color: var(--muted); }
 .ship-opt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+
+.cart-consent { align-items: flex-start; font-size: 14px; margin-top: 4px; }
+.cart-consent input { flex: none; margin-top: 2px; }
