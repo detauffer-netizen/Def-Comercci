@@ -6,6 +6,7 @@ import { verifyPassword } from "../lib/crypto.js";
 import { audit, clearSessionCookie, rateLimit } from "../lib/session.js";
 import { deleteImages } from "../lib/images.js";
 import * as v from "../lib/validate.js";
+import { billingEnabled, mercadoPago } from "../lib/billing.js";
 
 const all = async (db, sql, ...params) => (await db.prepare(sql).bind(...params).all()).results;
 
@@ -49,6 +50,9 @@ export async function deleteStore(request, env, session) {
   const keys = (await all(db, "SELECT r2_key FROM product_images WHERE store_id=?", id)).map((r) => r.r2_key);
   keys.push(session.store.logo_key, session.store.banner_key);
   const members = (await all(db, "SELECT user_id FROM memberships WHERE store_id=?", id)).map((r) => r.user_id);
+  // Encerra a cobrança recorrente antes de apagar os dados.
+  const sub = await db.prepare("SELECT provider_id FROM subscriptions WHERE store_id=?").bind(id).first();
+  if (sub?.provider_id && billingEnabled(env)) await mercadoPago.cancelPreapproval(env, sub.provider_id).catch(() => null);
   const membersJson = JSON.stringify(members);
   await db.batch([
     db.prepare("DELETE FROM product_images WHERE store_id=?").bind(id),
@@ -57,6 +61,8 @@ export async function deleteStore(request, env, session) {
     db.prepare("DELETE FROM orders WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM coupons WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM ai_usage WHERE store_id=?").bind(id),
+    db.prepare("DELETE FROM subscriptions WHERE store_id=?").bind(id),
+    db.prepare("DELETE FROM billing_payments WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM stock_movements WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM audit_log WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM memberships WHERE store_id=?").bind(id),

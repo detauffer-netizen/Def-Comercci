@@ -14,6 +14,7 @@ import * as reports from "./routes/reports.js";
 import * as coupons from "./routes/coupons.js";
 import * as twofactor from "./routes/twofactor.js";
 import * as ai from "./routes/ai.js";
+import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
 
@@ -28,6 +29,11 @@ const ROUTES = [
   ["GET", "/api/store/:slug", pub.storefront, "public"],
   ["POST", "/api/order-request/:slug", pub.createOrderRequest, "public"],
   ["POST", "/api/order-preview/:slug", pub.orderPreview, "public"],
+  ["POST", "/api/billing/webhook/mercadopago", billing.mercadoPagoWebhook, "public"],
+  ["GET", "/api/billing", billing.billingStatus, "owner"],
+  ["POST", "/api/billing/subscribe", billing.subscribe, "owner"],
+  ["POST", "/api/billing/pay-month", billing.payMonth, "owner"],
+  ["POST", "/api/billing/cancel", billing.cancel, "owner"],
   ["POST", "/api/logout", auth.logout, "session"],
   ["GET", "/api/me", panel.me, "session"],
   ["POST", "/api/account/password", team.changePassword, "session"],
@@ -83,6 +89,11 @@ const ROUTES = [
   ["PATCH", "/api/admin/stores/:id", admin.setStoreStatus, "admin"],
   ["GET", "/api/admin/audit", admin.adminAudit, "admin"],
   ["GET", "/api/admin/errors", admin.listErrors, "admin"],
+  ["GET", "/api/admin/plans", billing.listPlans, "admin"],
+  ["POST", "/api/admin/plans", billing.createPlan, "admin"],
+  ["PATCH", "/api/admin/plans/:id", billing.updatePlan, "admin"],
+  ["GET", "/api/admin/billing", billing.billingOverview, "admin"],
+  ["PATCH", "/api/admin/stores/:id/plan", billing.setStorePlan, "admin"],
 ].map(([method, pattern, handler, access]) => {
   const names = [];
   const regex = new RegExp(
@@ -113,7 +124,9 @@ function withHeaders(response, extra = {}) {
 
 async function handleApi(request, env, url) {
   // Proteção CSRF: toda escrita precisa vir da própria origem.
-  if (request.method !== "GET" && request.method !== "HEAD") {
+  // Webhooks vêm de servidores externos (sem Origin) e são autenticados por assinatura.
+  const webhook = url.pathname.startsWith("/api/billing/webhook/");
+  if (request.method !== "GET" && request.method !== "HEAD" && !webhook) {
     if (request.headers.get("Origin") !== url.origin) return json({ error: "Origem inválida" }, 403);
   }
   for (const route of ROUTES) {
