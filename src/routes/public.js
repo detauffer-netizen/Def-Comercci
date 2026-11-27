@@ -1,0 +1,110 @@
+// Rotas públicas da vitrine: dados da loja e registro de pedidos.
+
+import { HttpError, json, readJson } from "../lib/http.js";
+import { rateLimitByIp } from "../lib/session.js";
+import { imageUrl } from "../lib/images.js";
+import * as v from "../lib/validate.js";
+
+export function effectivePrice(product) {
+  const promo = product.promo_price_cents;
+  return promo !== null && promo !== undefined && promo < product.price_cents ? promo : product.price_cents;
+}
+
+async function activeStore(db, slug) {
+  if (!/^[a-z0-9-]{3,60}$/.test(slug)) return null;
+  return db
+    .prepare("SELECT id,name,slug,whatsapp,accent,description,logo_key,banner_key FROM stores WHERE slug=? AND status='active'")
+    .bind(slug)
+    .first();
+}
+
+export async function imagesByProduct(db, storeId) {
+  const rows = await db
+    .prepare("SELECT id,product_id,r2_key FROM product_images WHERE store_id=? ORDER BY position, created_at")
+    .bind(storeId)
+    .all();
+  const map = new Map();
+  for (const row of rows.results) {
+    if (!map.has(row.product_id)) map.set(row.product_id, []);
+    map.get(row.product_id).push({ id: row.id, url: imageUrl(row.r2_key) });
+  }
+  return map;
+}
+
+export async function storefront(request, env, params) {
+  const db = env.DB;
+  const store = await activeStore(db, params.slug);
+  if (!store) throw new HttpError(404, "Loja não encontrada");
+  const products = await db
+    .prepare(
+      `SELECT id,name,description,price_cents,promo_price_cents,stock,category,sku,featured
+         FROM products WHERE store_id=? AND active=1
+        ORDER BY featured DESC, name COLLATE NOCASE`,
+    )
+    .bind(store.id)
+    .all();
+  const images = await imagesByProduct(db, store.id);
+  return json(
+    {
+      name: store.name,
+      slug: store.slug,
+      whatsapp: store.whatsapp,
+      accent: store.accent,
+      description: store.description,
+      logo_url: imageUrl(store.logo_key),
+      banner_url: imageUrl(store.banner_key),
+      products: products.results.map((p) => ({
+        ...p,
+        featured: !!p.featured,
+        final_price_cents: effectivePrice(p),
+        images: (images.get(p.id) || []).map((i) => i.url),
+      })),
+    },
+    200,
+    // Cache curto na borda; o estoque é revalidado de novo no pedido.
+    { "Cache-Control": "public, max-age=15" },
+  );
+}
+
+export async function createOrderRequest(request, env, params) {
+  const db = env.DB;
+  await rateLimitByIp(db, request, "order-request", 20);
+  const store = await activeStore(db, params.slug);
+  if (!store) throw new HttpError(404, "Loja não encontrada");
+  const body = await readJson(request);
+  if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 30) {
+    throw new HttpError(400, "Pedido inválido");
+  }
+  const customerName = v.requiredText(body.customer_name, 100, "seu nome");
+  const customerPhone = v.phone(body.customer_phone);
+  const notes = v.cleanText(body.notes, 500, { multiline: true });
+
+  const seen = new Set();
+  const items = [];
+  let total = 0;
+  for (const item of body.items) {
+    if (typeof item?.id !== "string" || item.id.length > 64 || seen.has(item.id)) throw new HttpError(400, "Pedido inválido");
+    if (!Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 100) {
+      throw new HttpError(400, "Quantidade inválida");
+    }
+    seen.add(item.id);
+    // Preço e nome sempre vêm do banco, nunca do navegador.
+    const product = await db
+      .prepare("SELECT name,price_cents,promo_price_cents,stock,sku FROM products WHERE id=? AND store_id=? AND active=1")
+      .bind(item.id, store.id)
+      .first();
+    if (!product) throw new HttpError(409, "Um dos produtos não está mais disponível");
+    if (product.stock < item.quantity) throw new HttpError(409, `Estoque insuficiente para ${product.name}`);
+    const price = effectivePrice(product);
+    total += price * item.quantity;
+    items.push({ id: item.id, name: product.name, sku: product.sku, quantity: item.quantity, price_cents: price });
+  }
+  const orderId = crypto.randomUUID();
+  await db
+    .prepare(
+      "INSERT INTO orders(id,store_id,items_json,total_cents,customer_name,customer_phone,notes) VALUES(?,?,?,?,?,?,?)",
+    )
+    .bind(orderId, store.id, JSON.stringify(items), total, customerName, customerPhone, notes)
+    .run();
+  return json({ id: orderId, code: orderId.slice(0, 8).toUpperCase(), total_cents: total, items }, 201);
+}

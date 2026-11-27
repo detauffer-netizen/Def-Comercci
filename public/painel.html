@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1f3a">
+<meta name="robots" content="noindex">
+<title>Painel | Def Commerce</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/painel.css">
+<script src="/js/painel.js" type="module"></script>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" hidden>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10v10h16V10"/><path d="M2.5 6 5 3h14l2.5 3v1.5a3 3 0 0 1-5 2.2 3 3 0 0 1-4.5 0 3 3 0 0 1-4.5 0 3 3 0 0 1-5-2.2z"/><path d="M9.5 20v-5h5v5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10h6M9 13h4"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v6H4V6h6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.3L12 17.4 6.5 20.4l1-6.3L3 9.7l6.2-.9z"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></symbol>
+</svg>
+
+<div id="boot" class="boot" aria-busy="true"><span class="brand"><span class="brand-mark">D</span>Def Commerce</span></div>
+
+<!-- Acesso -->
+<main id="auth" class="auth" hidden>
+  <div class="auth-side">
+    <a class="brand" href="/"><span class="brand-mark">D</span>Def Commerce</a>
+    <h1>Sua loja vendendo pelo WhatsApp em minutos.</h1>
+    <ul class="auth-points">
+      <li><svg class="icon"><use href="#i-check"/></svg>Catálogo com a identidade da sua marca</li>
+      <li><svg class="icon"><use href="#i-check"/></svg>Pedidos organizados e estoque automático</li>
+      <li><svg class="icon"><use href="#i-check"/></svg>Clientes e vendas em um só painel</li>
+    </ul>
+  </div>
+  <div class="auth-card card">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-login" aria-selected="true" aria-controls="login">Entrar</button>
+      <button role="tab" id="tab-register" aria-selected="false" aria-controls="register">Criar minha loja</button>
+    </div>
+    <form id="login" novalidate>
+      <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+      <label class="field"><span>Senha</span><input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn btn-primary btn-block">Entrar no painel</button>
+      <p class="muted small-note">Esqueceu a senha? A recuperação por e-mail está em implantação; fale com o suporte Def Commerce.</p>
+    </form>
+    <form id="register" hidden novalidate>
+      <label class="field"><span>Nome da loja</span><input name="name" maxlength="100" autocomplete="organization" required></label>
+      <label class="field"><span>Endereço da vitrine</span>
+        <div class="slug-input"><span>/loja/</span><input name="slug" maxlength="60" pattern="[a-z0-9][a-z0-9-]{1,58}[a-z0-9]" autocapitalize="none" spellcheck="false" required></div>
+        <small>Letras minúsculas, números e hífen. Ex.: moda-da-ana</small></label>
+      <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+      <label class="field"><span>Senha</span><input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small>Mínimo de 12 caracteres.</small></label>
+      <label class="check"><input type="checkbox" name="terms" required> <span>Li e concordo com o tratamento dos meus dados para operar a loja, conforme a LGPD.</span></label>
+      <button class="btn btn-primary btn-block">Criar loja grátis</button>
+    </form>
+    <p id="auth-error" class="form-error" role="alert" hidden></p>
+  </div>
+</main>
+
+<!-- Painel -->
+<div id="app" class="app" hidden>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-mark">D</span>Def Commerce</a>
+    <nav class="nav" aria-label="Seções do painel">
+      <a href="#inicio" data-view="inicio"><svg class="icon"><use href="#i-home"/></svg><span>Início</span></a>
+      <a href="#produtos" data-view="produtos"><svg class="icon"><use href="#i-box"/></svg><span>Produtos</span></a>
+      <a href="#pedidos" data-view="pedidos"><svg class="icon"><use href="#i-receipt"/></svg><span>Pedidos</span><b id="pending-badge" class="nav-count" hidden></b></a>
+      <a href="#clientes" data-view="clientes"><svg class="icon"><use href="#i-users"/></svg><span>Clientes</span></a>
+      <a href="#loja" data-view="loja"><svg class="icon"><use href="#i-store"/></svg><span>Minha loja</span></a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-store">
+        <span id="store-avatar" class="store-avatar"></span>
+        <div><strong id="store-name"></strong><small id="store-url" class="muted"></small></div>
+      </div>
+      <div class="topbar-actions">
+        <a id="open-store" class="btn btn-ghost btn-sm" target="_blank" rel="noopener"><svg class="icon icon-sm"><use href="#i-external"/></svg><span class="hide-sm">Ver vitrine</span></a>
+        <button id="logout" class="btn btn-ghost btn-icon" title="Sair" aria-label="Sair"><svg class="icon"><use href="#i-logout"/></svg></button>
+      </div>
+    </header>
+
+    <section id="view-inicio" class="view" aria-labelledby="h-inicio">
+      <div class="view-head"><h1 id="h-inicio">Olá! Veja como está sua loja</h1></div>
+      <div id="onboarding" class="card onboarding" hidden>
+        <h2>Primeiros passos</h2>
+        <p class="muted">Complete as etapas para começar a receber pedidos.</p>
+        <ol id="onboarding-steps" class="steps"></ol>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><h2>Pedidos recentes</h2><a href="#pedidos" class="link">Ver todos</a></div>
+          <div id="recent-orders"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Atenção ao estoque</h2><a href="#produtos" class="link">Produtos</a></div>
+          <div id="stock-alerts"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-produtos" class="view" aria-labelledby="h-produtos" hidden>
+      <div class="view-head">
+        <h1 id="h-produtos">Produtos</h1>
+        <button id="new-product" class="btn btn-primary"><svg class="icon"><use href="#i-plus"/></svg>Novo produto</button>
+      </div>
+      <div class="toolbar">
+        <label class="search"><svg class="icon"><use href="#i-search"/></svg><span class="sr-only">Buscar produtos</span><input id="product-search" type="search" placeholder="Buscar por nome, SKU ou categoria"></label>
+        <select id="product-filter" class="input" aria-label="Filtrar produtos">
+          <option value="all">Todos</option><option value="active">Ativos</option><option value="inactive">Inativos</option>
+          <option value="low">Estoque baixo</option><option value="featured">Destaques</option>
+        </select>
+      </div>
+      <div id="product-list" class="product-list"></div>
+      <details class="card history">
+        <summary><svg class="icon"><use href="#i-history"/></svg>Histórico de movimentações de estoque</summary>
+        <div id="stock-history"></div>
+      </details>
+    </section>
+
+    <section id="view-pedidos" class="view" aria-labelledby="h-pedidos" hidden>
+      <div class="view-head">
+        <h1 id="h-pedidos">Pedidos</h1>
+        <button id="export-orders" class="btn btn-ghost"><svg class="icon"><use href="#i-download"/></svg>Exportar CSV</button>
+      </div>
+      <div class="chips" role="tablist" aria-label="Filtrar pedidos por status" id="order-filters">
+        <button class="chip" data-status="" aria-pressed="true">Todos</button>
+        <button class="chip" data-status="pending" aria-pressed="false">Pendentes</button>
+        <button class="chip" data-status="confirmed" aria-pressed="false">Confirmados</button>
+        <button class="chip" data-status="completed" aria-pressed="false">Concluídos</button>
+        <button class="chip" data-status="cancelled" aria-pressed="false">Cancelados</button>
+      </div>
+      <div id="order-list" class="order-list"></div>
+    </section>
+
+    <section id="view-clientes" class="view" aria-labelledby="h-clientes" hidden>
+      <div class="view-head">
+        <h1 id="h-clientes">Clientes</h1>
+        <button id="export-customers" class="btn btn-ghost"><svg class="icon"><use href="#i-download"/></svg>Exportar CSV</button>
+      </div>
+      <p class="muted">Clientes são cadastrados automaticamente quando fazem um pedido na sua vitrine.</p>
+      <div id="customer-list"></div>
+    </section>
+
+    <section id="view-loja" class="view" aria-labelledby="h-loja" hidden>
+      <div class="view-head"><h1 id="h-loja">Minha loja</h1></div>
+      <div class="two-col">
+        <form id="settings" class="card">
+          <h2>Dados e atendimento</h2>
+          <label class="field"><span>Nome da loja</span><input name="name" maxlength="100" required></label>
+          <label class="field"><span>Descrição curta</span><textarea name="description" maxlength="300" placeholder="Ex.: Moda feminina com entrega em toda a cidade"></textarea></label>
+          <label class="field"><span>WhatsApp de atendimento</span><input name="whatsapp" inputmode="tel" placeholder="55 54 99999-9999"><small>Com DDI e DDD. É para este número que os pedidos são enviados.</small></label>
+          <label class="field"><span>Cor principal da vitrine</span><input type="color" name="accent"></label>
+          <button class="btn btn-blue">Salvar alterações</button>
+        </form>
+        <div>
+          <div class="card">
+            <h2>Divulgue sua vitrine</h2>
+            <p class="muted">Compartilhe o link no WhatsApp, Instagram e redes sociais.</p>
+            <div class="share-box"><input id="share-url" class="input" readonly aria-label="Link da vitrine"><button id="copy-url" class="btn btn-ghost btn-icon" aria-label="Copiar link"><svg class="icon"><use href="#i-copy"/></svg></button></div>
+            <a id="share-whatsapp" class="btn btn-ghost btn-block" target="_blank" rel="noopener"><svg class="icon"><use href="#i-chat"/></svg>Enviar catálogo pelo WhatsApp</a>
+          </div>
+          <div class="card">
+            <h2>Identidade visual</h2>
+            <div class="brand-assets">
+              <div class="asset">
+                <div id="logo-preview" class="asset-preview logo"></div>
+                <div><strong>Logotipo</strong><small class="muted">Quadrado, até 2 MB</small>
+                  <div class="asset-actions"><label class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Enviar<input type="file" accept="image/jpeg,image/png,image/webp" data-asset="logo" hidden></label><button class="btn btn-danger btn-sm" data-remove-asset="logo">Remover</button></div></div>
+              </div>
+              <div class="asset">
+                <div id="banner-preview" class="asset-preview banner"></div>
+                <div><strong>Banner</strong><small class="muted">Horizontal, 1600×600 recomendado</small>
+                  <div class="asset-actions"><label class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Enviar<input type="file" accept="image/jpeg,image/png,image/webp" data-asset="banner" hidden></label><button class="btn btn-danger btn-sm" data-remove-asset="banner">Remover</button></div></div>
+              </div>
+            </div>
+          </div>
+          <details class="card history" id="audit-card">
+            <summary><svg class="icon"><use href="#i-history"/></svg>Registro de atividades</summary>
+            <div id="audit-list"></div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="product-dialog" aria-labelledby="product-dialog-title">
+  <form id="product-form" method="dialog" novalidate>
+    <div class="dialog-head"><h2 id="product-dialog-title">Novo produto</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div id="image-manager" class="image-manager">
+        <div id="image-grid" class="image-grid"></div>
+        <label class="image-add" id="image-add"><svg class="icon"><use href="#i-image"/></svg><span>Adicionar fotos</span><input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
+        <small class="muted" id="image-hint">As fotos são otimizadas automaticamente antes do envio.</small>
+      </div>
+      <label class="field"><span>Nome do produto</span><input name="name" maxlength="120" required></label>
+      <label class="field"><span>Descrição</span><textarea name="description" maxlength="2000" placeholder="Material, medidas, diferenciais..."></textarea></label>
+      <div class="grid-2">
+        <label class="field"><span>Preço (R$)</span><input name="price" inputmode="decimal" placeholder="0,00" required></label>
+        <label class="field"><span>Preço promocional (R$)</span><input name="promo" inputmode="decimal" placeholder="Opcional"></label>
+        <label class="field"><span>Estoque</span><input name="stock" type="number" min="0" step="1" inputmode="numeric" required></label>
+        <label class="field"><span>SKU / código</span><input name="sku" maxlength="60" placeholder="Opcional"></label>
+      </div>
+      <label class="field"><span>Categoria</span><input name="category" maxlength="80" list="category-options" placeholder="Ex.: Camisetas"><datalist id="category-options"></datalist></label>
+      <label class="check"><input type="checkbox" name="featured"> <span>Destacar na vitrine</span></label>
+      <label class="check"><input type="checkbox" name="active" checked> <span>Visível na vitrine</span></label>
+      <p id="product-error" class="form-error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" id="delete-product" class="btn btn-danger" hidden><svg class="icon icon-sm"><use href="#i-trash"/></svg>Excluir</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button class="btn btn-primary" id="save-product">Salvar produto</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "def-commerce",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Plataforma SaaS multiempresa de catálogos digitais com pedidos pelo WhatsApp (Cloudflare Workers + D1 + R2).",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "test:e2e": "node test/e2e/run.js",
+    "check": "node scripts/check-frontend.js",
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply def-commerce-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply def-commerce-db --remote",
+    "db:backup": "wrangler d1 export def-commerce-db --remote --output=backups/def-commerce-$(date +%Y%m%d-%H%M%S).sql",
+    "deploy": "npm test && wrangler deploy",
+    "rollback": "wrangler rollback"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}
