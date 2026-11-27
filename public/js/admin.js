@@ -1,4 +1,5 @@
 import { api, formatDate, h, icon, money, toast } from "./common.js";
+import { mountTwoFactor } from "./twofactor.js";
 
 const $ = (id) => document.getElementById(id);
 let stores = [];
@@ -145,8 +146,16 @@ $("login").addEventListener("submit", async (event) => {
   const button = event.submitter;
   button.disabled = true;
   try {
-    await api("/api/login", { method: "POST", body: Object.fromEntries(new FormData(event.target)) });
+    const result = await api("/api/login", { method: "POST", body: Object.fromEntries(new FormData(event.target)) });
     event.target.reset();
+    if (result.two_factor_required) {
+      challenge = result.challenge;
+      $("login").hidden = true;
+      $("login-2fa").hidden = false;
+      $("login-error").hidden = true;
+      $("login-2fa").elements.code.focus();
+      return;
+    }
     await start();
     if (!$("app").hidden) return;
     showLogin("Esta conta não tem acesso à administração da plataforma.");
@@ -155,6 +164,21 @@ $("login").addEventListener("submit", async (event) => {
     showLogin(error.message);
   } finally {
     button.disabled = false;
+  }
+});
+let challenge = "";
+$("login-2fa").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/login/2fa", { method: "POST", body: { challenge, code: event.target.elements.code.value } });
+    event.target.reset();
+    $("login-2fa").hidden = true;
+    $("login").hidden = false;
+    await start();
+    if ($("app").hidden) showLogin("Esta conta não tem acesso à administração da plataforma.");
+  } catch (error) {
+    toast(error.message, { error: true });
+    if (error.status === 401) { $("login-2fa").hidden = true; $("login").hidden = false; }
   }
 });
 $("suspend-form").addEventListener("submit", async (event) => {
@@ -182,7 +206,11 @@ $("password-form").addEventListener("submit", async (event) => {
     toast(error.message, { error: true });
   }
 });
-$("open-password").addEventListener("click", () => { $("password-form").reset(); $("password-dialog").showModal(); });
+$("open-password").addEventListener("click", () => {
+  $("password-form").reset();
+  mountTwoFactor($("tfa-box"), "/api/admin/2fa");
+  $("password-dialog").showModal();
+});
 for (const b of document.querySelectorAll("[data-close]")) b.addEventListener("click", () => b.closest("dialog").close());
 $("logout").addEventListener("click", async () => {
   await api("/api/admin/logout", { method: "POST", body: {} }).catch(() => {});

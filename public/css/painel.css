@@ -235,3 +235,4 @@
   body.printing .print-only { display: block !important; }
 }
 .print-only { display: none; }
+.image-grid figure .cover-btn { top: auto; bottom: -8px; right: -8px; background: var(--orange-500); color: var(--navy-950); }

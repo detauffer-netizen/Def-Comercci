@@ -116,3 +116,14 @@ dialog::backdrop { background: rgb(7 22 48 / 55%); }
   .hide-xs { display: none; }
 }
 .form-error { color: var(--danger); background: var(--danger-bg); padding: .6rem .8rem; border-radius: 10px; margin: 12px 0 0; font-weight: 500; }
+
+/* Verificação em duas etapas */
+.tfa-section { border-top: 1px solid var(--line); }
+.tfa-steps { padding-left: 1.2rem; margin: 0 0 10px; }
+.tfa-steps li { margin-bottom: 6px; }
+.tfa-secret { display: block; font: 700 15px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; background: var(--bg); border: 1px dashed #c6d2e4; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; word-break: break-all; }
+.tfa-on { color: var(--ok); font-weight: 700; }
+.tfa-codes { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0 14px; }
+.tfa-codes code { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tfa .btn + .btn { margin-left: 8px; }
+.tfa details summary { cursor: pointer; color: var(--danger); font-weight: 600; margin: 8px 0; }
