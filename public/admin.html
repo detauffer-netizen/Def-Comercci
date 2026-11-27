@@ -65,6 +65,37 @@
         </table>
       </div>
     </section>
+    <section class="card" aria-labelledby="h-billing">
+      <div class="section-head"><h2 id="h-billing">Planos e assinaturas</h2><span id="billing-flag" class="badge"></span></div>
+      <div class="kpis" id="billing-kpis"></div>
+      <h3 class="sub-title">Inadimplentes</h3>
+      <div id="overdue-list"></div>
+      <h3 class="sub-title">Planos</h3>
+      <div class="table-wrap">
+        <table class="plans-table">
+          <thead><tr><th>Código</th><th>Nome</th><th class="num">Preço/mês</th><th>Limites</th><th class="num">Assinantes</th><th>Status</th><th></th></tr></thead>
+          <tbody id="plans-body"></tbody>
+        </table>
+      </div>
+      <details id="plan-form-box" class="plan-form-box">
+        <summary class="btn btn-ghost btn-sm" id="plan-form-title">Novo plano</summary>
+        <form id="plan-form" novalidate>
+          <div class="form-grid">
+            <label class="field"><span>Código</span><input name="id" maxlength="30" placeholder="ex.: profissional" required></label>
+            <label class="field"><span>Nome</span><input name="name" maxlength="60" required></label>
+            <label class="field"><span>Preço por mês (R$)</span><input name="price" inputmode="decimal" placeholder="0,00" required></label>
+            <label class="field"><span>Dias de teste grátis</span><input name="trial_days" type="number" min="0" max="90" value="0"></label>
+            <label class="field"><span>Máx. de produtos</span><input name="max_products" type="number" min="0" placeholder="Ilimitado"></label>
+            <label class="field"><span>Máx. de pessoas na equipe</span><input name="max_team" type="number" min="1" placeholder="Ilimitado"></label>
+            <label class="field"><span>Usos de IA por dia</span><input name="ai_daily" type="number" min="0" placeholder="Padrão"></label>
+            <label class="field"><span>Ordem</span><input name="position" type="number" min="0" value="0"></label>
+          </div>
+          <label class="field"><span>Descrição</span><input name="description" maxlength="300"></label>
+          <label class="check"><input type="checkbox" name="active" checked> <span>Disponível para assinatura</span></label>
+          <div class="row-actions"><button class="btn btn-blue">Salvar plano</button><button type="button" class="btn btn-ghost" id="plan-form-cancel">Cancelar</button></div>
+        </form>
+      </details>
+    </section>
     <section class="card" aria-labelledby="h-errors">
       <div class="section-head"><h2 id="h-errors">Erros do servidor</h2><button class="btn btn-ghost btn-sm" id="reload-errors">Atualizar</button></div>
       <p class="muted" id="errors-summary"></p>
@@ -85,6 +116,18 @@
       <label class="field"><span>Motivo (fica no registro de operações)</span><textarea name="reason" maxlength="300" required></textarea></label>
     </div>
     <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-danger">Suspender</button></div>
+  </form>
+</dialog>
+
+<dialog id="grant-dialog" aria-labelledby="grant-title">
+  <form id="grant-form" novalidate>
+    <div class="dialog-head"><h2 id="grant-title">Definir plano da loja</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <p class="muted">Use para cortesias e ajustes. Não gera cobrança.</p>
+      <label class="field"><span>Plano</span><select name="plan_id" id="grant-plan"></select></label>
+      <label class="field"><span>Por quantos dias</span><input name="days" type="number" min="1" max="3650" value="30" required></label>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-blue">Aplicar</button></div>
   </form>
 </dialog>
 

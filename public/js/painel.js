@@ -988,7 +988,60 @@ async function loadStore() {
     preview.style.backgroundImage = s[`${kind}_url`] ? `url("${s[`${kind}_url`]}")` : "";
     document.querySelector(`[data-remove-asset=${kind}]`).hidden = !s[`${kind}_url`];
   }
-  await Promise.all([loadTeam(), loadCoupons(), refreshAiUsage()]);
+  await Promise.all([loadTeam(), loadCoupons(), refreshAiUsage(), loadPlan()]);
+}
+
+// ---------- Plano e assinatura ----------
+
+const SUB_STATUS = {
+  pending: ["Aguardando pagamento", "badge-warn"], trialing: ["Em período de teste", "badge"], active: ["Ativa", "badge-ok"],
+  past_due: ["Pagamento atrasado", "badge-danger"], canceled: ["Cancelada", "badge"],
+};
+
+function limitsText(p) {
+  const lim = (value, unit) => (value === null || value === undefined ? `${unit} ilimitados` : `até ${value} ${unit}`);
+  return [lim(p.max_products, "produtos"), lim(p.max_team, "pessoas na equipe"), p.ai_daily === 0 ? "sem IA" : p.ai_daily ? `${p.ai_daily} usos de IA por dia` : "IA no limite padrão"];
+}
+
+async function loadPlan() {
+  const box = $("plan-box");
+  const b = await api("/api/billing");
+  const sub = b.subscription;
+  const st = sub ? SUB_STATUS[sub.status] : null;
+  const until = sub?.current_period_end ? formatDate(sub.current_period_end).split(",")[0] : "";
+  const checkout = (path, plan, button) => busy(button, async () => {
+    const r = await api(path, { method: "POST", body: { plan_id: plan.id } });
+    location.href = r.checkout_url;
+  });
+  box.replaceChildren(
+    h("div", { class: "plan-current" },
+      h("div", {}, h("small", { class: "muted", text: "Plano atual" }), h("div", {}, h("strong", { text: b.plan.name }))),
+      st && b.plan.price_cents > 0 ? h("span", { class: `badge ${st[1]}`, text: st[0] }) : null),
+    h("p", { class: "plan-usage", text: [
+      `${b.usage.products} produto(s) · ${b.usage.team} pessoa(s) na equipe`,
+      until && b.plan.price_cents > 0 ? (sub.status === "canceled" ? `acesso até ${until}` : `próxima renovação ${until}`) : null,
+    ].filter(Boolean).join(" · ") }),
+    !b.enabled ? h("p", { class: "ai-note", text: "Os pagamentos ainda não foram ativados. Durante o beta, a sua loja usa o plano gratuito." }) : null,
+    sub?.status === "past_due" ? h("p", { class: "form-error", text: "Não conseguimos cobrar a assinatura. Atualize o pagamento para não perder os recursos do plano." }) : null,
+    h("div", { class: "plan-list" }, ...b.plans.filter((p) => p.price_cents > 0 || p.id === b.plan.id).map((p) => {
+      const current = p.id === b.plan.id;
+      return h("div", { class: `plan-option ${current ? "current" : ""}` },
+        h("strong", { text: p.name }),
+        h("div", { class: "price" }, p.price_cents ? money(p.price_cents) : "Grátis", p.price_cents ? h("small", { text: " /mês" }) : null),
+        p.description ? h("p", { class: "muted", text: p.description }) : null,
+        h("ul", {}, ...limitsText(p).map((t) => h("li", { text: t })), p.trial_days ? h("li", { text: `${p.trial_days} dias grátis para testar` }) : null),
+        p.price_cents > 0 && b.enabled ? h("div", { class: "row-actions" },
+          h("button", { class: "btn btn-blue btn-sm", onclick: (e) => checkout("/api/billing/subscribe", p, e.currentTarget) }, current && sub?.recurring ? "Assinatura ativa" : "Assinar no cartão (mensal)"),
+          h("button", { class: "btn btn-ghost btn-sm", onclick: (e) => checkout("/api/billing/pay-month", p, e.currentTarget) }, "Pagar 1 mês (Pix ou cartão)")) : null);
+    })),
+    sub?.recurring && sub.status !== "canceled" ? h("button", { class: "btn btn-danger btn-sm", style: { marginTop: "12px" }, onclick: (e) => busy(e.currentTarget, async () => {
+      if (!confirm("Cancelar a renovação automática? Você continua com o plano até o fim do período já pago.")) return;
+      await api("/api/billing/cancel", { method: "POST", body: {} });
+      toast("Renovação cancelada.");
+      await loadPlan();
+    }) }, "Cancelar renovação") : null,
+    b.payments.length ? h("details", { class: "plan-history" }, h("summary", { text: "Pagamentos" }),
+      ...b.payments.map((p) => h("div", { class: "row" }, h("div", { class: "grow" }, h("strong", { text: money(p.amount_cents) }), h("small", { text: `${p.method || "Mercado Pago"} · ${formatDate(p.created_at)}` })), h("span", { class: `badge ${p.status === "approved" ? "badge-ok" : "badge-warn"}`, text: p.status === "approved" ? "Aprovado" : p.status })))) : null);
 }
 
 // ---------- Cupons ----------

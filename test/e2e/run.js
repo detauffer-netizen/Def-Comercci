@@ -340,6 +340,20 @@ try {
     await admin.locator("#stores tr", { hasText: "Moda da Ana" }).filter({ hasText: "Ativa" }).waitFor();
     await admin.locator("#audit summary").click();
     await admin.locator("#audit-list .row", { hasText: "Loja suspensa" }).waitFor();
+    // Planos: o administrador cria um plano pago; o lojista o vê, sem cobrança ativa.
+    await admin.locator("#plan-form-box summary").click();
+    const planForm = admin.locator("#plan-form");
+    await planForm.getByLabel("Código").fill("profissional");
+    await planForm.getByLabel("Nome").fill("Profissional");
+    await planForm.getByLabel("Preço por mês (R$)").fill("49,90");
+    await planForm.getByLabel("Máx. de produtos").fill("500");
+    await planForm.getByRole("button", { name: "Salvar plano" }).click();
+    await admin.locator("#plans-body tr", { hasText: "Profissional" }).filter({ hasText: "R$ 49,90" }).waitFor();
+    await admin.locator("#billing-flag", { hasText: "Cobrança desativada" }).waitFor();
+    await panel.goto(url + "/painel#loja");
+    await panel.reload();
+    await panel.locator("#plan-box .plan-option", { hasText: "Profissional" }).waitFor();
+    await panel.locator("#plan-box", { hasText: "Os pagamentos ainda não foram ativados" }).waitFor();
     // Lojista não entra na administração.
     const merchantAdmin = await mobile.newPage();
     await merchantAdmin.goto(url + "/admin");
