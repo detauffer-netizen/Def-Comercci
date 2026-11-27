@@ -342,16 +342,19 @@ export async function deleteStoreImage(request, env, session, params) {
 const STATUSES = ["pending", "confirmed", "completed", "cancelled"];
 
 export async function listOrders(request, env, session) {
-  const status = new URL(request.url).searchParams.get("status");
+  const params = new URL(request.url).searchParams;
+  const status = params.get("status");
   const filter = STATUSES.includes(status) ? status : null;
+  const channel = ["online", "pos"].includes(params.get("channel")) ? params.get("channel") : null;
   const rows = await env.DB.prepare(
     `SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes,
-            fulfillment,delivery_fee_cents,address
-       FROM orders WHERE store_id=? AND (? IS NULL OR status=?)
+            fulfillment,delivery_fee_cents,address,channel,payments_json,receivable_cents
+       FROM orders WHERE store_id=? AND (? IS NULL OR status=?) AND (? IS NULL OR channel=?)
       ORDER BY created_at DESC LIMIT 200`,
-  ).bind(session.store.id, filter, filter).all();
-  return json(rows.results.map(({ items_json, ...o }) => ({
+  ).bind(session.store.id, filter, filter, channel, channel).all();
+  return json(rows.results.map(({ items_json, payments_json, ...o }) => ({
     ...o, code: o.id.slice(0, 8).toUpperCase(), items: JSON.parse(items_json).map(({ cost_cents: _c, ...i }) => i),
+    payments: JSON.parse(payments_json || "[]"),
   })));
 }
 
@@ -444,7 +447,7 @@ export async function notifications(request, env, session) {
   const fresh = since
     ? (await db.prepare(
       `SELECT id,total_cents,customer_name,created_at FROM orders
-        WHERE store_id=? AND created_at >= ? ORDER BY created_at DESC LIMIT 20`,
+        WHERE store_id=? AND channel='online' AND created_at >= ? ORDER BY created_at DESC LIMIT 20`,
     ).bind(session.store.id, since).all()).results
     : [];
   return json({ now, pending, new_orders: fresh.map((o) => ({ ...o, code: o.id.slice(0, 8).toUpperCase() })) });

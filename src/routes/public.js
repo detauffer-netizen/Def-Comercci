@@ -102,8 +102,9 @@ export async function storefront(request, env, params) {
 }
 
 // Calcula itens e subtotal com preços e estoque do banco (nunca do navegador).
-export async function priceItems(db, store, list) {
-  if (!Array.isArray(list) || list.length < 1 || list.length > 30) throw new HttpError(400, "Pedido inválido");
+// includeHidden: o PDV vende também produtos ocultos da vitrine.
+export async function priceItems(db, store, list, { includeHidden = false, maxItems = 30 } = {}) {
+  if (!Array.isArray(list) || list.length < 1 || list.length > maxItems) throw new HttpError(400, "Pedido inválido");
   const body = { items: list };
   const seen = new Set();
   const items = [];
@@ -122,9 +123,9 @@ export async function priceItems(db, store, list) {
       .prepare(
         `SELECT name,price_cents,promo_price_cents,stock,sku,cost_cents,
                 EXISTS (SELECT 1 FROM product_variants WHERE product_id=products.id) AS has_variants
-           FROM products WHERE id=? AND store_id=? AND active=1`,
+           FROM products WHERE id=? AND store_id=? AND (active=1 OR ?)`,
       )
-      .bind(item.id, store.id)
+      .bind(item.id, store.id, includeHidden ? 1 : 0)
       .first();
     if (!product) throw new HttpError(409, "Um dos produtos não está mais disponível");
     if (product.has_variants && variantId === null) throw new HttpError(400, `Escolha uma opção de ${product.name}`);
