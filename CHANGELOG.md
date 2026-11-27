@@ -2,6 +2,19 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.8.0-beta] — 2026-11-27 — Pendências: etiquetas, várias fotos e telas estreitas
+
+### Adicionado
+- **Etiquetas com código de barras** (Produtos → Editar vários → Imprimir etiquetas): nome, preço e código de barras (Code 128, lido por leitores comuns) a partir do código de barras ou do SKU; quantidade por item ou uma por unidade em estoque; variações com SKU próprio. Folha A4 com 3 colunas (63,5 × 38,1 mm, 21 por folha, padrão das etiquetas adesivas mais comuns).
+- **Cadastro por várias fotos** (até 10 de uma vez, dentro do limite diário de IA): cada foto vira um rascunho com nome, descrição e categoria sugeridos; o lojista informa preço e estoque e salva todos de uma vez, com a foto já no produto. Sem preço, nada é salvo.
+
+### Corrigido
+- Vitrine e painel sem rolagem lateral até 280 px de largura (busca da vitrine e itens da lista de produtos podiam passar da tela em celulares muito estreitos).
+
+### Técnico
+- `public/js/barcode.js` (gerador Code 128 em SVG, sem dependências) com testes de decodificação e dígito verificador; cache do painel `def-painel-v3`.
+- 3 testes de API novos (157 no total) e 1 fluxo E2E novo (34 verificações).
+
 ## [1.7.0-beta] — 2026-11-27 — Def Commerce 2.0, bloco 5: cadastro inteligente
 
 ### Adicionado

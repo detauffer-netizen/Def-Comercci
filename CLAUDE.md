@@ -44,11 +44,11 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 7, 8 e 9 parciais. Versão 1.7.0-beta: IA com Workers AI, variações,
+Fase 1 concluída. Fases 2, 3, 5, 6, 7, 8 e 9 parciais. Versão 1.8.0-beta: IA com Workers AI, variações,
 equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
 avisos de pedidos, nova landing, cupons, PWA, monitoramento de erros, entrega e
 retirada, ordem da vitrine, impressão de pedidos, verificação em duas etapas,
-ordem das categorias, catálogo em PDF e planos com Mercado Pago (cobrança desligada) carrinho abandonado com consentimento resumo com lucro (custo histórico), PDV, financeiro (a receber, devoluções, despesas) e estoque avançado (entradas, perdas, inventário, fornecedores, Preciso repor) e cadastro por planilha/edição em massa. Detalhes e
+ordem das categorias, catálogo em PDF e planos com Mercado Pago (cobrança desligada) carrinho abandonado com consentimento resumo com lucro (custo histórico), PDV, financeiro (a receber, devoluções, despesas) e estoque avançado (entradas, perdas, inventário, fornecedores, Preciso repor) cadastro por planilha/edição em massa/várias fotos e etiquetas com código de barras. Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades
@@ -69,6 +69,7 @@ próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 - Financeiro (`src/routes/finance.js`): devolução = linha em `order_returns`; os gatilhos `order_return_guard` (só concluídas, nunca mais que o vendido) e `order_return_restock` cuidam do estoque. Baixa de conta a prazo com INSERT…SELECT + UPDATE condicionados ao saldo no mesmo batch. Ao excluir a loja, apague `order_returns`, `receivable_payments` e `expenses` antes de `orders`.
 - Estoque avançado (`src/routes/stock.js`): toda movimentação manual é um INSERT em `stock_adjustments`; os gatilhos validam produto/variação e aplicam o delta. Nunca faça UPDATE direto de estoque fora desses caminhos. "Preciso repor" desconta itens de pedidos pendentes (reservados).
 - Planilha (`src/routes/catalog.js`): importação tudo-ou-nada, atualiza pelo SKU; a prévia (`dry_run`) devolve 200 com `valid:false` para não poluir o console. Edição em massa nunca mexe em estoque.
+- Etiquetas: `public/js/barcode.js` gera Code 128-B em SVG (só ASCII; acentos ficam sem barras). Ao adicionar arquivos JS ao painel, inclua-os em `public/sw.js` e troque o nome do cache.
 - Frontend: `replaceChildren` com `null` vira texto "null"; use `kids(...)` ou `h()` (que ignora nulos).
 - Def Commerce 2.0: o plano em 10 fases está em `ROADMAP.md`.
 - `test/helpers/env.js` implementa o subconjunto da API do D1 usado pelo código. Se

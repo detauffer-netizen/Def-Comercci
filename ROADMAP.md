@@ -110,7 +110,7 @@ Ordem de execução e situação real:
 
 1. 🟡 Auditoria e integração: carrinho abandonado (PR #12) e lucro/resumo (bloco 1) prontos; publicação pendente (token da Cloudflare)
 2. 🟡 Redesign do painel e navegação mobile: ✅ "Pedidos" virou Vendas, ✅ botão de ação rápida no celular; ⬜ separar Divulgação e Configurações de "Minha loja"
-3. 🟡 Cadastro inteligente: ✅ mensagem (com custo, quantidade e margem) e foto com IA, ✅ custo/código de barras/fornecedor/localização, ✅ leitura de código pela câmera, ✅ importação/exportação CSV, ✅ duplicar e editar em massa; ⬜ várias fotos de uma vez, ⬜ impressão de etiquetas com código de barras
+3. ✅ Cadastro inteligente: mensagem (com custo, quantidade e margem), foto e várias fotos de uma vez com IA; custo/código de barras/fornecedor/localização; leitura de código pela câmera; importação/exportação CSV; duplicar e editar em massa; etiquetas com código de barras
 4. ✅ Estoque: histórico por gatilho, alerta de reposição, valor do estoque, entradas com custo médio, perdas, inventário, devoluções, quantidade reservada, fornecedores e "Preciso repor" com lista de compras por fornecedor (⬜ etiquetas e códigos de barras impressos ficam para a fase 3)
 5. ✅ PDV e financeiro: venda presencial idempotente (Pix, dinheiro, cartões, misto, a prazo), comprovante, baixa pelos gatilhos; custo histórico, lucro bruto, resultado estimado, despesas, contas a receber, devoluções com reposição e calculadora de preço (⬜ leitura de código pela câmera fica na fase 3)
 6. 🟡 Catálogo premium e checkout: ✅ busca, categorias, destaques, variações, carrinho persistente, entrega/retirada, SEO por produto; ⬜ filtros de preço, favoritos, relacionados, horário, banners, modelos por segmento, reserva com expiração, página de acompanhamento do pedido
