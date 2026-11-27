@@ -10,6 +10,7 @@ let cart = new Map(); // "produto|variação" -> quantidade
 let category = "";
 let current = null;
 let currentVariant = null;
+const coupon = { code: "", preview: null, timer: null }; // desconto calculado pelo servidor
 
 const cartKey = (product, variant) => `${product.id}|${variant?.id || ""}`;
 
@@ -123,7 +124,21 @@ function cartLines() {
 function renderCart() {
   const lines = cartLines();
   const count = lines.reduce((s, l) => s + l.qty, 0);
-  const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const preview = coupon.preview && coupon.preview.subtotal_cents === subtotal ? coupon.preview : null;
+  const total = preview ? preview.total_cents : subtotal;
+  $("cart-sub-row").hidden = !preview;
+  $("cart-disc-row").hidden = !preview;
+  if (preview) {
+    $("cart-subtotal").textContent = money(subtotal);
+    $("cart-disc-label").textContent = `Cupom ${preview.coupon_code}`;
+    $("cart-disc-value").textContent = `− ${money(preview.discount_cents)}`;
+  }
+  // O carrinho mudou com um cupom aplicado: recalcula no servidor.
+  if (coupon.code && !preview && count) {
+    clearTimeout(coupon.timer);
+    coupon.timer = setTimeout(() => applyCoupon(coupon.code, { quiet: true }), 300);
+  }
   $("cart-bar").hidden = !count;
   $("cart-count").textContent = String(count);
   $("cart-total").textContent = money(total);
@@ -189,6 +204,48 @@ async function share(title, url) {
   }
 }
 
+function cartItemsPayload() {
+  return cartLines().map((l) => ({ id: l.product.id, ...(l.variant ? { variant_id: l.variant.id } : {}), quantity: l.qty }));
+}
+
+function couponMessage(text, kind) {
+  const el = $("coupon-msg");
+  el.textContent = text;
+  el.className = `coupon-msg ${kind}`;
+  el.hidden = !text;
+}
+
+async function applyCoupon(code, { quiet = false } = {}) {
+  code = String(code || "").trim().toUpperCase();
+  if (!code) {
+    coupon.code = "";
+    coupon.preview = null;
+    couponMessage("", "");
+    return renderCart();
+  }
+  const button = $("apply-coupon");
+  button.disabled = true;
+  try {
+    const preview = await api(`/api/order-preview/${encodeURIComponent(slug)}`, { method: "POST", body: { items: cartItemsPayload(), coupon_code: code } });
+    if (!preview.valid) {
+      coupon.code = "";
+      coupon.preview = null;
+      couponMessage(quiet ? `O cupom deixou de valer para este pedido: ${preview.error}` : preview.error, "error");
+      return;
+    }
+    coupon.preview = preview;
+    coupon.code = code;
+    couponMessage(`Cupom aplicado: você economiza ${money(preview.discount_cents)}.`, "ok");
+  } catch (error) {
+    coupon.code = "";
+    coupon.preview = null;
+    couponMessage(error.message, "error");
+  } finally {
+    button.disabled = false;
+    renderCart();
+  }
+}
+
 function orderMessage(order, data) {
   const lines = order.items.map((i) => `${i.quantity}x ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""} — ${money(i.price_cents * i.quantity)}`);
   return [
@@ -196,6 +253,8 @@ function orderMessage(order, data) {
     "",
     ...lines,
     "",
+    order.discount_cents ? `Subtotal: ${money(order.subtotal_cents)}` : null,
+    order.discount_cents ? `Cupom ${order.coupon_code}: − ${money(order.discount_cents)}` : null,
     `Total: ${money(order.total_cents)}`,
     `Nome: ${data.customer_name}`,
     data.notes ? `Observações: ${data.notes}` : null,
@@ -216,9 +275,13 @@ async function checkout(event) {
   try {
     const order = await api(`/api/order-request/${encodeURIComponent(slug)}`, {
       method: "POST",
-      body: { ...data, items: cartLines().map((l) => ({ id: l.product.id, ...(l.variant ? { variant_id: l.variant.id } : {}), quantity: l.qty })) },
+      body: { ...data, coupon_code: coupon.code, items: cartItemsPayload() },
     });
     cart.clear();
+    coupon.code = "";
+    coupon.preview = null;
+    $("coupon-input").value = "";
+    couponMessage("", "");
     saveCart();
     renderCart();
     renderProducts();
@@ -301,6 +364,12 @@ $("search").addEventListener("input", renderProducts);
 $("cart-bar").addEventListener("click", () => $("cart-dialog").showModal());
 $("checkout").addEventListener("submit", checkout);
 $("share-store").addEventListener("click", () => share(store.name, `${location.origin}/loja/${slug}`));
+$("apply-coupon").addEventListener("click", () => applyCoupon($("coupon-input").value));
+$("coupon-input").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault(); // Enter aqui aplica o cupom em vez de enviar o pedido
+  applyCoupon(e.target.value);
+});
 $("pd-add").addEventListener("click", () => {
   const key = cartKey(current, currentVariant);
   setQuantity(current, (cart.get(key) || 0) + 1, currentVariant);

@@ -7,6 +7,10 @@
 <meta name="robots" content="noindex">
 <title>Painel | Def Commerce</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Def Commerce">
 <link rel="stylesheet" href="/css/app.css">
 <link rel="stylesheet" href="/css/painel.css">
 <script src="/js/painel.js" type="module"></script>
@@ -38,6 +42,8 @@
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></symbol>
   <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z"/><path d="M9 6v12" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></symbol>
 </svg>
 
@@ -99,6 +105,7 @@
         <div><strong id="store-name"></strong><small id="store-url" class="muted"></small></div>
       </div>
       <div class="topbar-actions">
+        <button id="install-app" class="btn btn-ghost btn-sm" hidden><svg class="icon icon-sm"><use href="#i-phone"/></svg><span class="hide-sm">Instalar app</span></button>
         <a id="open-store" class="btn btn-ghost btn-sm" target="_blank" rel="noopener"><svg class="icon icon-sm"><use href="#i-external"/></svg><span class="hide-sm">Ver vitrine</span></a>
         <button id="open-password" class="btn btn-ghost btn-icon" title="Alterar senha" aria-label="Alterar senha"><svg class="icon"><use href="#i-key"/></svg></button>
         <button id="logout" class="btn btn-ghost btn-icon" title="Sair" aria-label="Sair"><svg class="icon"><use href="#i-logout"/></svg></button>
@@ -219,6 +226,25 @@
                   <div class="asset-actions"><label class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Enviar<input type="file" accept="image/jpeg,image/png,image/webp" data-asset="banner" hidden></label><button class="btn btn-danger btn-sm" data-remove-asset="banner">Remover</button></div></div>
               </div>
             </div>
+          </div>
+          <div class="card" id="coupons-card">
+            <h2>Cupons de desconto</h2>
+            <p class="muted">Crie códigos para promoções. O desconto é aplicado na vitrine e calculado pelo sistema.</p>
+            <div id="coupon-list"></div>
+            <details class="team-add" id="coupon-add">
+              <summary class="btn btn-ghost btn-sm"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Novo cupom</summary>
+              <form id="coupon-form" novalidate>
+                <label class="field"><span>Código</span><input name="code" maxlength="30" autocapitalize="characters" spellcheck="false" placeholder="Ex.: BEMVINDO10" required></label>
+                <div class="grid-2">
+                  <label class="field"><span>Tipo</span><select name="kind"><option value="percent">Porcentagem (%)</option><option value="fixed">Valor fixo (R$)</option></select></label>
+                  <label class="field"><span>Desconto</span><input name="value" inputmode="decimal" placeholder="Ex.: 10" required></label>
+                  <label class="field"><span>Pedido mínimo (R$)</span><input name="min_order" inputmode="decimal" placeholder="Opcional"></label>
+                  <label class="field"><span>Limite de usos</span><input name="max_uses" type="number" min="1" step="1" inputmode="numeric" placeholder="Sem limite"></label>
+                </div>
+                <label class="field"><span>Válido até</span><input name="expires_at" type="date"><small>Deixe em branco para não expirar.</small></label>
+                <button class="btn btn-blue">Criar cupom</button>
+              </form>
+            </details>
           </div>
           <div class="card" id="team-card">
             <h2>Equipe</h2>

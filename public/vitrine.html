@@ -84,6 +84,13 @@
     <div class="dialog-head"><h2 id="cart-title">Seu pedido</h2><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fechar"><svg class="icon"><use href="#i-x"/></svg></button></div>
     <div class="dialog-body">
       <div id="cart-items"></div>
+      <div class="coupon-box">
+        <label class="field" for="coupon-input"><span>Cupom de desconto</span></label>
+        <div class="coupon-row"><input id="coupon-input" class="input" maxlength="30" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Digite o código"><button type="button" class="btn btn-ghost" id="apply-coupon">Aplicar</button></div>
+        <p id="coupon-msg" class="coupon-msg" role="status" hidden></p>
+      </div>
+      <div class="cart-row" id="cart-sub-row" hidden><span>Subtotal</span><span id="cart-subtotal"></span></div>
+      <div class="cart-row discount" id="cart-disc-row" hidden><span id="cart-disc-label"></span><span id="cart-disc-value"></span></div>
       <div class="cart-sum"><span>Total</span><strong id="cart-sum">R$ 0,00</strong></div>
       <h3>Seus dados</h3>
       <label class="field"><span>Nome</span><input name="customer_name" maxlength="100" autocomplete="name" required></label>

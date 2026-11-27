@@ -18,6 +18,12 @@ const ACTIONS = {
   "team.removed": "Pessoa removida da equipe",
   "user.login": "Login",
   "user.password_changed": "Senha alterada",
+  "coupon.created": "Cupom criado",
+  "coupon.updated": "Cupom alterado",
+  "coupon.deleted": "Cupom excluído",
+  "customer.anonymized": "Dados de cliente excluídos",
+  "store.exported": "Dados da loja exportados",
+  "store.deleted": "Loja excluída pelo proprietário",
 };
 
 function showLogin(message) {
@@ -36,7 +42,7 @@ async function start() {
   }
   $("login-view").hidden = true;
   $("app").hidden = false;
-  await Promise.all([loadOverview(), loadStores()]).catch((e) => toast(e.message, { error: true }));
+  await Promise.all([loadOverview(), loadStores(), loadErrors()]).catch((e) => toast(e.message, { error: true }));
 }
 
 const bytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
@@ -118,11 +124,21 @@ async function loadAudit() {
     h("small", { text: formatDate(r.created_at) }))) : [h("p", { class: "muted", text: "Nenhuma operação registrada." })]));
 }
 
+async function loadErrors() {
+  const e = await api("/api/admin/errors");
+  $("errors-summary").textContent = `${e.last_24h} erro(s) nas últimas 24 horas · ${e.last_7d} nos últimos 7 dias.`;
+  $("errors-list").replaceChildren(...(e.grouped.length ? e.grouped.map((g) => h("div", { class: "error-row" },
+    h("code", { text: `${g.method} ${g.path}` }),
+    h("span", { class: "msg", text: g.message }),
+    h("small", { text: `${g.count} ocorrência(s) · última em ${formatDate(g.last_seen)}` }))) : [h("p", { class: "muted", text: "Nenhum erro nos últimos 7 dias." })]));
+}
+
 let searchTimer;
 $("search").addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadStores().catch((e) => toast(e.message, { error: true })), 250);
 });
+$("reload-errors").addEventListener("click", () => loadErrors().catch((e) => toast(e.message, { error: true })));
 $("audit").addEventListener("toggle", (e) => { if (e.target.open) loadAudit().catch((err) => toast(err.message, { error: true })); });
 $("login").addEventListener("submit", async (event) => {
   event.preventDefault();
