@@ -40,6 +40,7 @@ async function busy(button, task) {
 // ---------- Acesso ----------
 
 function showAuth(message) {
+  stopNotifications();
   $("boot").hidden = true;
   $("app").hidden = true;
   $("auth").hidden = false;
@@ -101,7 +102,76 @@ async function start() {
   // Com senha provisória, nada é carregado até a troca (a API recusaria).
   if (state.me.user.must_change_password) return openPassword(true);
   route();
+  startNotifications();
 }
+
+// ---------- Notificações de pedidos novos ----------
+
+const notif = { since: "", seen: new Set(), timer: null, baseTitle: document.title };
+const ALERTS_KEY = "def-alerts";
+
+function alertsEnabled() {
+  try {
+    return "Notification" in window && Notification.permission === "granted" && localStorage.getItem(ALERTS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function renderAlertsButton() {
+  const button = $("enable-alerts");
+  button.hidden = !("Notification" in window) || Notification.permission === "denied" || alertsEnabled();
+}
+
+async function pollNotifications() {
+  if (document.hidden || $("app").hidden || !can("orders") || state.me?.user.must_change_password) return;
+  let data;
+  try {
+    data = await api(`/api/notifications${notif.since ? `?since=${encodeURIComponent(notif.since)}` : ""}`);
+  } catch (error) {
+    if (error.status === 401) stopNotifications();
+    return;
+  }
+  const first = !notif.since;
+  notif.since = data.now;
+  const fresh = data.new_orders.filter((o) => !notif.seen.has(o.id));
+  for (const o of data.new_orders) notif.seen.add(o.id);
+  state.metrics = { ...(state.metrics || {}), pending: data.pending };
+  updatePendingBadge();
+  document.title = data.pending ? `(${data.pending}) ${notif.baseTitle}` : notif.baseTitle;
+  if (first || !fresh.length) return;
+  const o = fresh[0];
+  const text = fresh.length > 1
+    ? `${fresh.length} pedidos novos. O mais recente: ${o.customer_name}, ${money(o.total_cents)}.`
+    : `Novo pedido #${o.code} de ${o.customer_name}: ${money(o.total_cents)}.`;
+  toast(text);
+  if (alertsEnabled()) {
+    try {
+      const n = new Notification("Novo pedido na sua loja", { body: text, tag: "def-order", icon: "/favicon.svg" });
+      n.onclick = () => { window.focus(); location.hash = "pedidos"; n.close(); };
+    } catch { /* navegador sem suporte a notificações nesta página */ }
+  }
+  if (location.hash === "#pedidos") loadOrders().catch(fail);
+  else if ((location.hash || "#inicio") === "#inicio") loadHome().catch(fail);
+}
+
+function startNotifications() {
+  stopNotifications();
+  if (!can("orders")) return;
+  renderAlertsButton();
+  pollNotifications();
+  notif.timer = setInterval(pollNotifications, 30000);
+}
+
+function stopNotifications() {
+  clearInterval(notif.timer);
+  notif.timer = null;
+  notif.since = "";
+  notif.seen.clear();
+  document.title = notif.baseTitle;
+}
+
+document.addEventListener("visibilitychange", () => { if (!document.hidden && notif.timer) pollNotifications(); });
 
 function renderStoreHeader() {
   const s = state.me.store;
@@ -802,6 +872,7 @@ async function savePassword(event) {
     if (state.me.user.must_change_password) {
       state.me.user.must_change_password = false;
       route();
+      startNotifications();
     }
   } catch (error) {
     if (error.status === 401) return fail(error);
@@ -868,7 +939,22 @@ $("register").elements.name.addEventListener("input", (e) => {
 });
 $("register").elements.slug.addEventListener("input", (e) => (e.target.dataset.touched = "1"));
 
+$("enable-alerts").addEventListener("click", async () => {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      try { localStorage.setItem(ALERTS_KEY, "1"); } catch { /* preferência só nesta sessão */ }
+      toast("Alertas ativados. Você será avisado de novos pedidos enquanto o painel estiver aberto.");
+    } else {
+      toast("O navegador bloqueou os alertas. Você pode liberá-los nas configurações do site.", { error: true });
+    }
+  } catch {
+    toast("Este navegador não permite alertas.", { error: true });
+  }
+  renderAlertsButton();
+});
 $("logout").addEventListener("click", async () => {
+  stopNotifications();
   try {
     await api("/api/logout", { method: "POST", body: {} });
   } catch { /* sessão já encerrada */ }

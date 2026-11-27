@@ -2,6 +2,8 @@ import { api, h, icon, money, toast } from "./common.js";
 
 const $ = (id) => document.getElementById(id);
 const slug = location.pathname.split("/").filter(Boolean)[1] || "";
+const productPath = (p) => `/loja/${slug}/p/${p.id}`;
+let storeTitle = document.title;
 const CART_KEY = `def-cart:${slug}`;
 let store = null;
 let cart = new Map(); // "produto|variação" -> quantidade
@@ -156,7 +158,9 @@ function openProduct(p) {
   renderVariantChoice();
   $("pd-description").textContent = p.description || "";
 
-  history.replaceState(null, "", `#p-${p.id}`);
+  // Cada produto tem endereço próprio (com título e prévia gerados no servidor).
+  history.replaceState(null, "", productPath(p));
+  document.title = `${p.name} | ${store.name}`;
   $("product-dialog").showModal();
 }
 
@@ -266,7 +270,8 @@ async function start() {
     return;
   }
   document.documentElement.style.setProperty("--accent", store.accent);
-  document.title = `${store.name} | Catálogo`;
+  storeTitle = `${store.name} | Catálogo`;
+  if (!location.pathname.includes("/p/")) document.title = storeTitle;
   document.querySelector('meta[name="description"]').setAttribute("content", store.description || `Catálogo da ${store.name}. Faça seu pedido pelo WhatsApp.`);
   $("store-name").textContent = store.name;
   $("store-description").textContent = store.description || "";
@@ -286,7 +291,8 @@ async function start() {
   renderCategories();
   renderProducts();
   renderCart();
-  const linked = location.hash.match(/^#p-([0-9a-f-]{36})$/);
+  // /loja/<loja>/p/<id> ou o formato antigo #p-<id>
+  const linked = location.pathname.match(/\/p\/([0-9a-f-]{36})\/?$/) || location.hash.match(/^#p-([0-9a-f-]{36})$/);
   const target = linked && store.products.find((p) => p.id === linked[1]);
   if (target) openProduct(target);
 }
@@ -301,8 +307,11 @@ $("pd-add").addEventListener("click", () => {
   $("product-dialog").close();
   toast(`${current.name}${currentVariant ? ` (${currentVariant.name})` : ""} adicionado ao pedido.`);
 });
-$("pd-share").addEventListener("click", () => share(current.name, `${location.origin}/loja/${slug}#p-${current.id}`));
-$("product-dialog").addEventListener("close", () => history.replaceState(null, "", location.pathname));
+$("pd-share").addEventListener("click", () => share(current.name, location.origin + productPath(current)));
+$("product-dialog").addEventListener("close", () => {
+  history.replaceState(null, "", `/loja/${slug}`);
+  document.title = storeTitle;
+});
 for (const btn of document.querySelectorAll("[data-close]")) btn.addEventListener("click", () => btn.closest("dialog").close());
 
 start();
