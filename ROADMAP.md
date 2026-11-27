@@ -112,7 +112,7 @@ Ordem de execução e situação real:
 2. 🟡 Redesign do painel e navegação mobile: ✅ "Pedidos" virou Vendas, ✅ botão de ação rápida no celular; ⬜ separar Divulgação e Configurações de "Minha loja"
 3. 🟡 Cadastro inteligente: ✅ mensagem e foto com IA, ✅ custo/código de barras/fornecedor/localização; ⬜ custo e margem na IA, ⬜ leitura de código de barras pela câmera, ⬜ importação/exportação CSV, ⬜ duplicar e editar em massa, ⬜ várias fotos de uma vez
 4. 🟡 Estoque: ✅ histórico por gatilho, ✅ alerta de reposição por produto, ✅ valor do estoque pelo custo e de venda; ⬜ entradas/perdas/devoluções/inventário, ⬜ tela "Preciso repor" com lista de compras por fornecedor, ⬜ fornecedores
-5. 🟡 PDV e financeiro: ✅ venda presencial idempotente com Pix/dinheiro/cartões/misto/a prazo, comprovante e baixa pelos gatilhos; ✅ custo histórico, lucro bruto, ticket médio, valor a receber; ⬜ receber contas a prazo, devoluções, despesas, calculadora de preço, leitura de código pela câmera
+5. ✅ PDV e financeiro: venda presencial idempotente (Pix, dinheiro, cartões, misto, a prazo), comprovante, baixa pelos gatilhos; custo histórico, lucro bruto, resultado estimado, despesas, contas a receber, devoluções com reposição e calculadora de preço (⬜ leitura de código pela câmera fica na fase 3)
 6. 🟡 Catálogo premium e checkout: ✅ busca, categorias, destaques, variações, carrinho persistente, entrega/retirada, SEO por produto; ⬜ filtros de preço, favoritos, relacionados, horário, banners, modelos por segmento, reserva com expiração, página de acompanhamento do pedido
 7. 🟡 Marketing: ✅ textos com IA; ⬜ artes no navegador (Canvas) e QR Codes
 8. 🟡 CRM e assistente: ✅ clientes a partir dos pedidos; ⬜ segmentos, observações, assistente de perguntas sobre a loja
