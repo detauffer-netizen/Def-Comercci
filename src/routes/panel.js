@@ -8,6 +8,7 @@ import {
 } from "../lib/images.js";
 import { effectivePrice, imagesByProduct, parseCategoryOrder, variantsByProduct } from "./public.js";
 import * as v from "../lib/validate.js";
+import { assertWithinLimit } from "../lib/billing.js";
 
 function storeView(store) {
   return {
@@ -181,6 +182,8 @@ export async function listProducts(request, env, session) {
 export async function createProduct(request, env, session) {
   const db = env.DB;
   const p = productInput(await readJson(request));
+  const count = (await db.prepare("SELECT COUNT(*) AS n FROM products WHERE store_id=?").bind(session.store.id).first()).n;
+  await assertWithinLimit(db, session.store.id, "max_products", count, "produtos");
   const id = crypto.randomUUID();
   const statements = [
     db.prepare(

@@ -37,3 +37,12 @@ td small { display: block; color: var(--muted); }
 .error-row code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .error-row .msg { color: var(--danger); display: block; margin-top: 2px; word-break: break-word; }
 .error-row small { color: var(--muted); }
+
+.sub-title { font-size: 1rem; margin: 18px 0 8px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 12px; }
+.plan-form-box { margin-top: 12px; }
+.plan-form-box summary { list-style: none; display: inline-flex; }
+.plan-form-box summary::-webkit-details-marker { display: none; }
+.plan-form-box[open] summary { margin-bottom: 12px; }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.plans-table { min-width: 760px; }

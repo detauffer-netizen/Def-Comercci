@@ -1,4 +1,4 @@
-import { api, formatDate, h, icon, money, toast } from "./common.js";
+import { api, centsToInput, formatDate, h, icon, money, parseMoney, toast } from "./common.js";
 import { mountTwoFactor } from "./twofactor.js";
 
 const $ = (id) => document.getElementById(id);
@@ -43,7 +43,7 @@ async function start() {
   }
   $("login-view").hidden = true;
   $("app").hidden = false;
-  await Promise.all([loadOverview(), loadStores(), loadErrors()]).catch((e) => toast(e.message, { error: true }));
+  await Promise.all([loadOverview(), loadStores(), loadErrors(), loadBilling()]).catch((e) => toast(e.message, { error: true }));
 }
 
 const bytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
@@ -85,6 +85,7 @@ async function loadStores() {
       h("td", {}, h("span", { class: `badge ${active ? "badge-ok" : "badge-danger"}`, text: active ? "Ativa" : "Suspensa" })),
       h("td", {}, h("div", { style: { display: "flex", gap: "6px" } },
         h("a", { class: "btn btn-ghost btn-icon", href: `/loja/${s.slug}`, target: "_blank", rel: "noopener", "aria-label": `Abrir vitrine de ${s.name}` }, icon("external", "icon icon-sm")),
+        h("button", { class: "btn btn-ghost btn-sm", onclick: () => openGrant(s) }, "Plano"),
         active
           ? h("button", { class: "btn btn-danger btn-sm", onclick: () => openSuspend(s) }, "Suspender")
           : h("button", { class: "btn btn-blue btn-sm", onclick: (e) => reactivate(s, e.currentTarget) }, "Reativar"))));
@@ -134,10 +135,112 @@ async function loadErrors() {
     h("small", { text: `${g.count} ocorrência(s) · última em ${formatDate(g.last_seen)}` }))) : [h("p", { class: "muted", text: "Nenhum erro nos últimos 7 dias." })]));
 }
 
+// ---------- Planos e assinaturas ----------
+
+let plans = [];
+let granting = null;
+const limitCell = (p) => [
+  p.max_products === null ? "produtos ∞" : `${p.max_products} produtos`,
+  p.max_team === null ? "equipe ∞" : `equipe ${p.max_team}`,
+  p.ai_daily === null ? "IA padrão" : `IA ${p.ai_daily}/dia`,
+].join(" · ");
+
+async function loadBilling() {
+  const [b, list] = await Promise.all([api("/api/admin/billing"), api("/api/admin/plans")]);
+  plans = list;
+  $("billing-flag").textContent = b.enabled ? "Cobrança ativa" : "Cobrança desativada";
+  $("billing-flag").className = `badge ${b.enabled ? "badge-ok" : "badge-warn"}`;
+  const kpi = (label, value) => h("div", { class: "kpi" }, h("small", { text: label }), h("strong", { text: value }));
+  $("billing-kpis").replaceChildren(
+    kpi("Receita recorrente (MRR)", money(b.mrr_cents)), kpi("Lojas pagantes", String(b.paying)),
+    kpi("Em teste grátis", String(b.trialing)), kpi("Recebido (30 dias)", money(b.received_30d)), kpi("Inadimplentes", String(b.overdue.length)));
+  $("overdue-list").replaceChildren(...(b.overdue.length ? b.overdue.map((o) => h("div", { class: "row" },
+    h("div", { class: "grow" }, h("strong", { text: o.name }), h("small", { text: `${o.plan} · venceu em ${formatDate(o.current_period_end)}` })),
+    h("span", { class: "badge badge-danger", text: o.status === "past_due" ? "Pagamento recusado" : "Vencida" }))) : [h("p", { class: "muted", text: "Nenhuma loja inadimplente." })]));
+  $("plans-body").replaceChildren(...plans.map((p) => h("tr", {},
+    h("td", {}, h("code", { text: p.id })),
+    h("td", {}, h("strong", { text: p.name }), p.is_default ? h("small", { text: "plano padrão" }) : null),
+    h("td", { class: "num", text: p.price_cents ? money(p.price_cents) : "Grátis" }),
+    h("td", { text: limitCell(p) }),
+    h("td", { class: "num", text: String(p.subscribers) }),
+    h("td", {}, h("span", { class: `badge ${p.active ? "badge-ok" : ""}`, text: p.active ? "Disponível" : "Oculto" })),
+    h("td", {}, h("button", { class: "btn btn-ghost btn-sm", onclick: () => editPlan(p) }, "Editar")))));
+}
+
+function editPlan(p) {
+  const f = $("plan-form").elements;
+  $("plan-form").dataset.editing = p ? p.id : "";
+  $("plan-form").reset();
+  f.id.disabled = !!p;
+  if (p) {
+    f.id.value = p.id;
+    f.name.value = p.name;
+    f.description.value = p.description || "";
+    f.price.value = centsToInput(p.price_cents);
+    f.trial_days.value = p.trial_days;
+    f.max_products.value = p.max_products ?? "";
+    f.max_team.value = p.max_team ?? "";
+    f.ai_daily.value = p.ai_daily ?? "";
+    f.position.value = p.position;
+    f.active.checked = p.active;
+  }
+  $("plan-form-title").textContent = p ? `Editando: ${p.name}` : "Novo plano";
+  $("plan-form-box").open = true;
+  f.name.focus();
+}
+
+async function savePlan(event) {
+  event.preventDefault();
+  const f = event.target.elements;
+  const price = parseMoney(f.price.value);
+  if (price === null || Number.isNaN(price)) return toast("Informe o preço, por exemplo 49,90 (ou 0 para grátis).", { error: true });
+  const num = (input) => (input.value === "" ? null : Number(input.value));
+  const body = {
+    id: f.id.value, name: f.name.value, description: f.description.value, price_cents: price,
+    trial_days: Number(f.trial_days.value || 0), max_products: num(f.max_products), max_team: num(f.max_team),
+    ai_daily: num(f.ai_daily), position: Number(f.position.value || 0), active: f.active.checked,
+  };
+  const editing = event.target.dataset.editing;
+  try {
+    if (editing) await api(`/api/admin/plans/${editing}`, { method: "PATCH", body });
+    else await api("/api/admin/plans", { method: "POST", body });
+    toast("Plano salvo.");
+    event.target.reset();
+    event.target.dataset.editing = "";
+    f.id.disabled = false;
+    $("plan-form-box").open = false;
+    $("plan-form-title").textContent = "Novo plano";
+    await loadBilling();
+  } catch (error) {
+    toast(error.message, { error: true });
+  }
+}
+
+function openGrant(store) {
+  granting = store;
+  $("grant-title").textContent = `Plano de ${store.name}`;
+  $("grant-plan").replaceChildren(...plans.map((p) => h("option", { value: p.id, text: `${p.name} (${p.price_cents ? money(p.price_cents) : "grátis"})` })));
+  $("grant-dialog").showModal();
+}
+
 let searchTimer;
 $("search").addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadStores().catch((e) => toast(e.message, { error: true })), 250);
+});
+$("plan-form").addEventListener("submit", savePlan);
+$("plan-form-cancel").addEventListener("click", () => { editPlan(null); $("plan-form-box").open = false; });
+$("grant-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.target));
+  try {
+    await api(`/api/admin/stores/${granting.id}/plan`, { method: "PATCH", body: { plan_id: data.plan_id, days: Number(data.days) } });
+    $("grant-dialog").close();
+    toast(`Plano aplicado a ${granting.name}.`);
+    await loadBilling();
+  } catch (error) {
+    toast(error.message, { error: true });
+  }
 });
 $("reload-errors").addEventListener("click", () => loadErrors().catch((e) => toast(e.message, { error: true })));
 $("audit").addEventListener("toggle", (e) => { if (e.target.open) loadAudit().catch((err) => toast(err.message, { error: true })); });

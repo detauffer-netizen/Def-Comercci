@@ -256,3 +256,16 @@
 .campaign-block textarea { width: 100%; min-height: 110px; border: 1px solid #cdd7e6; border-radius: 10px; padding: 10px; font: inherit; }
 .campaign-block .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .campaign-block ul { padding-left: 1.2rem; margin: 6px 0 0; }
+
+/* Plano */
+.plan-current { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.plan-current strong { font-size: 1.15rem; }
+.plan-usage { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+.plan-list { display: grid; gap: 10px; margin-top: 12px; }
+.plan-option { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.plan-option.current { border-color: var(--blue-600); box-shadow: 0 0 0 1px var(--blue-600) inset; }
+.plan-option .price { font-size: 1.2rem; font-weight: 800; }
+.plan-option .price small { font-size: 13px; font-weight: 500; color: var(--muted); }
+.plan-option ul { margin: 6px 0 10px; padding-left: 1.1rem; font-size: 14px; color: #33445f; }
+.plan-option .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.plan-history { margin-top: 12px; font-size: 14px; }

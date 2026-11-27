@@ -3,6 +3,7 @@
 // revisada pelo lojista antes de salvar. Nada é gravado automaticamente.
 
 import { HttpError } from "./http.js";
+import { effectivePlan } from "./billing.js";
 
 export const TEXT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 export const VISION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
@@ -18,11 +19,18 @@ export function dailyLimit(env) {
   return Number.isSafeInteger(n) && n > 0 ? n : DEFAULT_DAILY_LIMIT;
 }
 
+// O plano da loja pode definir seu próprio limite diário (ai_daily).
+async function storeLimit(env, storeId) {
+  const { plan } = await effectivePlan(env.DB, storeId);
+  return plan?.ai_daily ?? dailyLimit(env);
+}
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 // Reserva um uso do dia de forma atômica; recusa acima do limite.
 export async function consumeQuota(env, storeId) {
-  const limit = dailyLimit(env);
+  const limit = await storeLimit(env, storeId);
+  if (limit === 0) throw new HttpError(402, "Seu plano não inclui inteligência artificial. Veja os planos em Minha loja.");
   const row = await env.DB.prepare(
     `INSERT INTO ai_usage(store_id,day,requests) VALUES(?,?,1)
      ON CONFLICT(store_id,day) DO UPDATE SET requests=requests+1 WHERE requests < ?
@@ -34,7 +42,7 @@ export async function consumeQuota(env, storeId) {
 
 export async function usage(env, storeId) {
   const row = await env.DB.prepare("SELECT requests FROM ai_usage WHERE store_id=? AND day=?").bind(storeId, today()).first();
-  return { used: row?.requests || 0, limit: dailyLimit(env), available: !!env.AI };
+  return { used: row?.requests || 0, limit: await storeLimit(env, storeId), available: !!env.AI };
 }
 
 // Extrai o objeto JSON da resposta (objeto pronto ou texto com JSON).

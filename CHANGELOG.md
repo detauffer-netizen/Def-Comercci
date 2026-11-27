@@ -2,6 +2,22 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [1.1.0-beta] — 2026-11-27 — Planos e pagamentos com Mercado Pago
+
+### Adicionado
+- **Planos** (migração 0015) com preço, dias de teste grátis e limites de produtos, equipe e usos de IA por dia. O plano padrão "Beta gratuito" (sem limites) continua valendo para todas as lojas. Nenhum preço comercial foi definido.
+- **Assinatura no cartão** (assinatura recorrente do Mercado Pago) e **pagamento de 1 mês por Pix ou cartão** (Checkout Pro), com redirecionamento para o Mercado Pago.
+- **Webhook** `/api/billing/webhook/mercadopago`: assinatura `x-signature` validada (HMAC-SHA256, janela de 24 h), idempotente por `x-request-id` e consulta do recurso na API antes de agir; o valor pago é conferido com o preço do plano.
+- **Carência de 7 dias** após o vencimento; depois a loja volta ao plano gratuito (nenhum dado é apagado).
+- **Limites aplicados no servidor** (402) ao criar produtos, adicionar pessoas na equipe e usar a IA.
+- Painel: card "Plano e assinatura" em Minha loja (plano atual, uso, opções, cancelamento da renovação e histórico).
+- Administração: receita recorrente, pagantes, em teste, recebido em 30 dias, inadimplentes, cadastro e edição de planos e definição manual do plano de uma loja (cortesia, sem cobrança).
+- A exclusão da loja cancela a assinatura no Mercado Pago.
+- 13 testes de API novos (120 no total, com Mercado Pago simulado) e 1 verificação E2E nova.
+
+### Segurança
+- A cobrança fica **desligada** (`BILLING_ENABLED="false"`) até o proprietário configurar `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET` e autorizar a ativação.
+
 ## [1.0.0-beta] — 2026-11-27 — Inteligência artificial com Workers AI
 
 ### Adicionado

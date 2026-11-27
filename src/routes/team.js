@@ -4,6 +4,7 @@ import { HttpError, json, readJson } from "../lib/http.js";
 import { hashPassword, verifyPassword } from "../lib/crypto.js";
 import { PERMISSIONS, audit, parsePermissions, rateLimit, requireOwner } from "../lib/session.js";
 import * as v from "../lib/validate.js";
+import { assertWithinLimit } from "../lib/billing.js";
 
 const MAX_TEAM = 20;
 
@@ -45,6 +46,7 @@ export async function addMember(request, env, session) {
   const permissions = permissionList(body.permissions);
   const count = await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE store_id=?").bind(session.store.id).first();
   if (count.n >= MAX_TEAM) throw new HttpError(409, `Limite de ${MAX_TEAM} pessoas na equipe`);
+  await assertWithinLimit(db, session.store.id, "max_team", count.n, "pessoas na equipe (incluindo você)");
   const userId = crypto.randomUUID();
   try {
     await db.batch([

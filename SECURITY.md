@@ -25,6 +25,7 @@ privado de suporte. Responderemos e corrigiremos com prioridade.
 | Vazamento de erros | Erros internos respondem 500 genérico; detalhes só nos logs do Worker |
 | CSV | Proteção contra injeção de fórmulas |
 | Inteligência artificial | Saída do modelo higienizada e limitada; nunca salva sozinha; preço nunca deduzido de foto; produtos de outras lojas nunca entram no prompt; limite diário por loja; dados de compradores não são enviados à IA |
+| Pagamentos | Mercado Pago: nenhum dado de cartão passa pelo Def Commerce; webhook com assinatura `x-signature` (HMAC-SHA256, tempo constante, janela de 24 h), idempotente e sempre confirmado consultando a API; valor pago conferido com o preço do plano; limites de plano aplicados no servidor; cobrança desligada por padrão |
 | Auditoria | `audit_log` por loja (cadastro, login, produtos, pedidos, configurações) e histórico de estoque por gatilho |
 | Transporte | HSTS, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options` |
 
@@ -45,4 +46,4 @@ segredos do Worker e segredos do GitHub Actions para a publicação. Veja `.env.
 ## Pendências de segurança conhecidas
 
 - Recuperação de senha por e-mail (depende de provedor de e-mail).
-- Webhooks de pagamento autenticados e idempotentes (Fase 7).
+- Validar as notificações do Mercado Pago no ambiente de testes antes de ativar a cobrança.

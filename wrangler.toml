@@ -31,6 +31,11 @@ binding = "AI"
 
 [vars]
 AI_DAILY_LIMIT = "30"
+# Cobrança real com Mercado Pago só quando o proprietário autorizar ("true").
+# Segredos (nunca no repositório):
+#   npx wrangler secret put MP_ACCESS_TOKEN
+#   npx wrangler secret put MP_WEBHOOK_SECRET
+BILLING_ENABLED = "false"
 
 [observability]
 enabled = true
