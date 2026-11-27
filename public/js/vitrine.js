@@ -11,6 +11,9 @@ let category = "";
 let current = null;
 let currentVariant = null;
 const coupon = { code: "", preview: null, timer: null }; // desconto calculado pelo servidor
+// Carrinho abandonado: só é enviado à loja com a autorização marcada pelo comprador.
+const TOKEN_KEY = `def-cart-token:${slug}`;
+const reminder = { token: null, saved: false, timer: null };
 
 const cartKey = (product, variant) => `${product.id}|${variant?.id || ""}`;
 
@@ -37,6 +40,57 @@ function saveCart() {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify([...cart]));
   } catch { /* armazenamento indisponível */ }
+  scheduleReminder();
+}
+
+// O identificador só fica guardado no aparelho enquanto há autorização ativa.
+function cartToken() {
+  reminder.token ||= crypto.randomUUID();
+  return reminder.token;
+}
+
+function restoreReminder() {
+  try {
+    const saved = localStorage.getItem(TOKEN_KEY);
+    if (/^[0-9a-f-]{36}$/.test(saved || "")) {
+      reminder.token = saved;
+      reminder.saved = true;
+      $("checkout").elements.cart_consent.checked = true;
+    }
+  } catch { /* opcional */ }
+}
+
+function scheduleReminder() {
+  clearTimeout(reminder.timer);
+  reminder.timer = setTimeout(syncReminder, 1200);
+}
+
+async function syncReminder() {
+  const f = $("checkout").elements;
+  const consent = f.cart_consent.checked;
+  const ready = cart.size && f.customer_name.value.trim() && String(f.customer_phone.value).replace(/\D/g, "").length >= 10;
+  try {
+    if (consent && ready) {
+      await api(`/api/cart-reminder/${encodeURIComponent(slug)}`, {
+        method: "PUT",
+        body: { token: cartToken(), consent: true, customer_name: f.customer_name.value, customer_phone: f.customer_phone.value, items: cartItemsPayload() },
+      });
+      reminder.saved = true;
+      try { localStorage.setItem(TOKEN_KEY, reminder.token); } catch { /* opcional */ }
+    } else if (reminder.saved && (!consent || !cart.size)) {
+      await api(`/api/cart-reminder/${encodeURIComponent(slug)}/${cartToken()}`, { method: "DELETE" });
+      reminder.saved = false;
+      try { localStorage.removeItem(TOKEN_KEY); } catch { /* opcional */ }
+    }
+  } catch { /* lembrete é opcional: não atrapalha a compra */ }
+}
+
+function forgetReminderToken() {
+  clearTimeout(reminder.timer);
+  reminder.token = null;
+  reminder.saved = false;
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* opcional */ }
+  $("checkout").elements.cart_consent.checked = false;
 }
 
 function setQuantity(product, qty, variant = null) {
@@ -301,7 +355,7 @@ function orderMessage(order, data) {
 async function checkout(event) {
   event.preventDefault();
   const form = event.target;
-  const data = Object.fromEntries(new FormData(form));
+  const { cart_consent: _consent, ...data } = Object.fromEntries(new FormData(form));
   const err = $("checkout-error");
   err.hidden = true;
   const digits = String(data.customer_phone).replace(/\D/g, "");
@@ -314,8 +368,9 @@ async function checkout(event) {
   try {
     const order = await api(`/api/order-request/${encodeURIComponent(slug)}`, {
       method: "POST",
-      body: { ...data, coupon_code: coupon.code, items: cartItemsPayload() },
+      body: { ...data, coupon_code: coupon.code, items: cartItemsPayload(), cart_token: cartToken() },
     });
+    forgetReminderToken();
     cart.clear();
     coupon.code = "";
     coupon.preview = null;
@@ -389,6 +444,7 @@ async function start() {
     const buyer = JSON.parse(localStorage.getItem("def-buyer") || "null");
     if (buyer) for (const k of ["customer_name", "customer_phone"]) $("checkout").elements[k].value = buyer[k] || "";
   } catch { /* opcional */ }
+  restoreReminder();
   loadCart();
   setupDelivery();
   renderCategories();
@@ -403,6 +459,9 @@ async function start() {
 $("search").addEventListener("input", renderProducts);
 $("cart-bar").addEventListener("click", () => $("cart-dialog").showModal());
 $("checkout").addEventListener("submit", checkout);
+for (const name of ["customer_name", "customer_phone", "cart_consent"]) {
+  $("checkout").elements[name].addEventListener(name === "cart_consent" ? "change" : "input", scheduleReminder);
+}
 $("share-store").addEventListener("click", () => share(store.name, `${location.origin}/loja/${slug}`));
 for (const radio of document.querySelectorAll('input[name="fulfillment"]')) radio.addEventListener("change", updateShipping);
 $("apply-coupon").addEventListener("click", () => applyCoupon($("coupon-input").value));

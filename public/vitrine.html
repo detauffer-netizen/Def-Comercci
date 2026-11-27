@@ -103,7 +103,8 @@
       <label class="field"><span>Telefone / WhatsApp</span><input name="customer_phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(54) 99999-9999" required></label>
       <label class="field" id="address-field" hidden><span>Endereço de entrega</span><textarea name="address" maxlength="300" autocomplete="street-address" placeholder="Rua, número, bairro e complemento"></textarea></label>
       <label class="field"><span>Observações</span><textarea name="notes" maxlength="500" placeholder="Forma de pagamento, ponto de referência, horário..."></textarea></label>
-      <small class="muted">Seu nome e telefone são enviados apenas para esta loja, para atender o pedido.</small>
+      <label class="check cart-consent"><input type="checkbox" name="cart_consent"> <span>Se eu não finalizar, a loja pode me chamar no WhatsApp sobre este carrinho</span></label>
+      <small class="muted">Seu nome e telefone são enviados apenas para esta loja, para atender o pedido. Sem a autorização acima, o carrinho fica só neste aparelho; com ela, a loja vê o carrinho por até 7 dias e você pode desmarcar a qualquer momento.</small>
       <p id="checkout-error" class="form-error" role="alert" hidden></p>
     </div>
     <div class="dialog-foot">

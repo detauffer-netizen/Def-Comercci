@@ -856,6 +856,7 @@ async function deleteProduct() {
 
 async function loadOrders() {
   loading($("order-list"));
+  if (state.orderStatus === "abandoned") return loadAbandoned();
   const query = state.orderStatus ? `?status=${state.orderStatus}` : "";
   state.orders = await api(`/api/orders${query}`);
   renderOrders();
@@ -893,6 +894,42 @@ function renderOrders() {
         o.fulfillment === "delivery" ? o.address : null) : null,
       o.notes ? h("p", { class: "order-notes", text: `Observações: ${o.notes}` }) : null,
       h("div", { class: "order-actions" }, ...actions));
+  }));
+}
+
+// Carrinhos que o comprador autorizou a loja a retomar pelo WhatsApp.
+async function loadAbandoned() {
+  const data = await api("/api/abandoned-carts");
+  const store = state.me.store;
+  const note = h("p", { class: "muted abandoned-note", text:
+    `Aparecem aqui só os compradores que autorizaram o contato e não finalizaram o pedido há mais de 30 minutos. ` +
+    `Os dados são apagados em ${data.retention_days} dias. Recuperados após contato: ${data.recovered}.` });
+  if (!data.carts.length) {
+    empty($("order-list"), "receipt", "Nenhum carrinho abandonado no momento.");
+    return $("order-list").prepend(note);
+  }
+  const update = (c, status, button) => busy(button, async () => {
+    await api(`/api/abandoned-carts/${c.id}`, { method: "PATCH", body: { status } });
+    if (status === "dismissed") toast("Carrinho descartado e dados apagados.");
+    await loadAbandoned();
+  });
+  $("order-list").replaceChildren(note, ...data.carts.map((c) => {
+    const first = c.customer_name.split(" ")[0];
+    const list = c.items.map((i) => `${i.quantity}x ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`).join(", ");
+    const msg = `Olá, ${first}! Aqui é da ${store.name}. Vi que você separou ${list} (${money(c.total_cents)}) e não finalizou. Posso ajudar com alguma dúvida?`;
+    return h("article", { class: "order abandoned" },
+      h("div", { class: "order-top" },
+        h("div", {}, h("strong", { text: c.customer_name }),
+          h("div", { class: "muted", text: `${formatPhone(c.customer_phone)} · atualizado ${formatDate(c.updated_at)}` })),
+        h("span", { class: `badge ${c.status === "contacted" ? "badge-ok" : "badge-warn"}`, text: c.status === "contacted" ? "Contatado" : "Não finalizado" })),
+      h("div", { class: "order-items" },
+        ...c.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
+        h("div", { style: { fontWeight: "700", marginTop: "6px" } }, h("span", { text: "Total" }), h("span", { text: money(c.total_cents) }))),
+      h("div", { class: "order-actions" },
+        h("a", { class: "btn btn-sm btn-blue", href: whatsappLink(c.customer_phone, msg), target: "_blank", rel: "noopener",
+          onclick: () => { if (c.status !== "contacted") api(`/api/abandoned-carts/${c.id}`, { method: "PATCH", body: { status: "contacted" } }).then(loadAbandoned).catch(fail); } },
+          icon("chat", "icon icon-sm"), "Chamar no WhatsApp"),
+        h("button", { class: "btn btn-sm btn-ghost", onclick: (e) => update(c, "dismissed", e.currentTarget) }, "Descartar")));
   }));
 }
 
