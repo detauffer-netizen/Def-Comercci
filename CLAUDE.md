@@ -44,13 +44,14 @@ Rode os três antes de cada commit que toque código.
 
 ## Estado atual (resumo)
 
-Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.4.0: variações,
-equipe, super administrador, LGPD, SEO da vitrine e relatórios. Detalhes e
+Fase 1 concluída. Fases 2, 3, 5, 6, 8 e 9 parciais. Versão 0.5.0: variações,
+equipe, super administrador, LGPD, SEO da vitrine e de produtos, relatórios,
+avisos de pedidos e nova landing. Detalhes e
 próximos passos em `ROADMAP.md`. Defeitos encontrados em `docs/AUDITORIA.md`.
 
 ## Particularidades
 
-- A página `/loja/<slug>` é montada no servidor (`src/lib/seo.js`) a partir de `public/vitrine.html`: não altere as tags `<title>`, `meta description` e `theme-color` desse arquivo sem ajustar as substituições.
+- As páginas `/loja/<slug>` e `/loja/<slug>/p/<id>` são montadas no servidor (`src/lib/seo.js`) a partir de `public/vitrine.html`: não altere as tags `<title>`, `meta description` e `theme-color` desse arquivo sem ajustar as substituições.
 - As migrações 0001–0006 foram aplicadas manualmente em produção. Antes do primeiro
   `wrangler d1 migrations apply --remote`, execute `scripts/bootstrap-d1-migrations.sql`.
 - Imagens: o navegador comprime para WebP (máx. 1600 px) antes do upload; o servidor

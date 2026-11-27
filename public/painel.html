@@ -37,6 +37,7 @@
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></symbol>
   <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></symbol>
 </svg>
 
@@ -162,7 +163,10 @@
     <section id="view-pedidos" class="view" aria-labelledby="h-pedidos" hidden>
       <div class="view-head">
         <h1 id="h-pedidos">Pedidos</h1>
-        <button id="export-orders" class="btn btn-ghost"><svg class="icon"><use href="#i-download"/></svg>Exportar CSV</button>
+        <div class="head-actions">
+          <button id="enable-alerts" class="btn btn-ghost" hidden><svg class="icon"><use href="#i-bell"/></svg>Ativar alertas</button>
+          <button id="export-orders" class="btn btn-ghost"><svg class="icon"><use href="#i-download"/></svg>Exportar CSV</button>
+        </div>
       </div>
       <div class="chips" role="tablist" aria-label="Filtrar pedidos por status" id="order-filters">
         <button class="chip" data-status="" aria-pressed="true">Todos</button>

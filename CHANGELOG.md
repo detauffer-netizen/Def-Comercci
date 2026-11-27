@@ -2,6 +2,17 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.5.0] — 2026-11-27 — Página de produto, avisos de pedidos e nova landing
+
+### Adicionado
+- **Página própria para cada produto** (`/loja/<loja>/p/<id>`): título com preço, descrição, imagem do produto na prévia de compartilhamento e dados estruturados `Product` (preço, faixa de preço com variações, disponibilidade). O botão compartilhar da vitrine usa esse endereço, e o sitemap inclui os produtos ativos.
+- **Aviso de pedidos novos no painel**: consulta a cada 30 segundos (e ao voltar para a aba), aviso na tela, contador de pendentes no título da aba e alerta opcional do navegador.
+- **Nova landing page**: proposta clara, passo a passo, recursos, comparação, segurança e LGPD, preço do beta e dúvidas frequentes, com menu para celular.
+- 6 testes de API novos (71 no total) e 2 verificações E2E novas (22 no total).
+
+### Removido
+- Demonstrações simuladas da landing antiga (painel local e "IA" simulada).
+
 ## [0.4.0] — 2026-11-27 — LGPD, SEO da vitrine e relatórios
 
 ### Adicionado

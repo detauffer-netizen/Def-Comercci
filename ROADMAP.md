@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 65 testes de API/integração + 20 verificações E2E em navegador
+- ✅ 71 testes de API/integração + 22 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -34,7 +34,8 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Equipe: funcionários com permissões individuais (produtos, pedidos, clientes, indicadores), senha provisória com troca obrigatória no 1º acesso, remoção com encerramento imediato das sessões
 - ✅ Troca de senha pelo próprio usuário (encerra as outras sessões)
 - ⛔ Recuperação de senha por e-mail (precisa de provedor de e-mail)
-- ⬜ Notificações de novos pedidos (no painel e por e-mail/push)
+- ✅ Aviso de novos pedidos no painel (consulta a cada 30 s, contador no título da aba e alerta opcional do navegador)
+- ⛔ Aviso por e-mail ou push com o painel fechado (depende de provedor de e-mail / push)
 - ✅ Relatórios por período (7/30/90 dias): vendas por dia em gráfico com dica (mouse, toque e teclado) e tabela, comparação com o período anterior, mais vendidos
 
 ## Fase 4 — Inteligência artificial ⛔
@@ -84,9 +85,9 @@ Preços e provedor de pagamento dependem do proprietário.
 
 - ✅ Design system (tokens, botões, formulários, ícones vetoriais), painel e vitrine redesenhados
 - ✅ Estados de carregamento, vazio e erro; mensagens claras em português; acessibilidade básica (rótulos, foco, contraste, `prefers-reduced-motion`)
-- ⬜ Nova landing page orientada à conversão (a atual foi mantida, com CTA para o cadastro real)
+- ✅ Nova landing page orientada à conversão, sem demonstrações simuladas nem números inventados
 - ✅ SEO da vitrine: título, descrição, Open Graph, canonical e dados estruturados por loja gerados no servidor; 404 real para lojas inexistentes; `sitemap.xml` e `robots.txt` dinâmicos
-- ⬜ Página própria por produto (hoje o link de produto usa `#p-<id>`)
+- ✅ Página própria por produto (`/loja/<loja>/p/<id>`) com título, preço, imagem, Open Graph e dados estruturados `Product`; incluída no sitemap
 
 ## Pendências reais (dependem do proprietário)
 

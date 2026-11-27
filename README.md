@@ -6,6 +6,7 @@ pedidos pelo WhatsApp e controlarem estoque, clientes e vendas em um painel.
 - Site: https://def-commerce.detauffer.workers.dev
 - Painel do lojista: https://def-commerce.detauffer.workers.dev/painel
 - Vitrine de uma loja: `https://def-commerce.detauffer.workers.dev/loja/<endereco-da-loja>`
+- Página de um produto: `.../loja/<endereco-da-loja>/p/<id-do-produto>`
 
 ## Arquitetura
 
@@ -44,7 +45,7 @@ banco. O navegador nunca escolhe a loja. Arquivos no R2 ficam em
 Requisitos: Node.js 22.5 ou mais recente.
 
 ```bash
-npm test             # testes de API e integração (65 testes, D1 simulado com SQLite real)
+npm test             # testes de API e integração (71 testes, D1 simulado com SQLite real)
 npm run check        # sintaxe dos scripts e conformidade com a CSP
 npm run test:e2e     # navegador real: cadastro → produto → vitrine → pedido → confirmação
 node test/e2e/server.js   # sobe o sistema localmente em http://localhost:8787
