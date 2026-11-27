@@ -270,7 +270,7 @@ export async function listOrders(request, env, session) {
   const status = new URL(request.url).searchParams.get("status");
   const filter = STATUSES.includes(status) ? status : null;
   const rows = await env.DB.prepare(
-    `SELECT id,items_json,total_cents,status,created_at,customer_name,customer_phone,notes
+    `SELECT id,items_json,subtotal_cents,discount_cents,coupon_code,total_cents,status,created_at,customer_name,customer_phone,notes
        FROM orders WHERE store_id=? AND (? IS NULL OR status=?)
       ORDER BY created_at DESC LIMIT 200`,
   ).bind(session.store.id, filter, filter).all();

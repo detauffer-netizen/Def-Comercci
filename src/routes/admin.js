@@ -77,3 +77,19 @@ export async function adminAudit(request, env) {
   ).all();
   return json(rows.results);
 }
+
+export async function listErrors(request, env) {
+  const db = env.DB;
+  const summary = await db.prepare(
+    `SELECT COALESCE(SUM(created_at >= datetime('now','-1 day')),0) AS last_24h,
+            COALESCE(SUM(created_at >= datetime('now','-7 days')),0) AS last_7d
+       FROM error_log`,
+  ).first();
+  const grouped = (await db.prepare(
+    `SELECT method, path, message, COUNT(*) AS count, MAX(created_at) AS last_seen, MAX(id) AS last_id
+       FROM error_log WHERE created_at >= datetime('now','-7 days')
+      GROUP BY method, path, message ORDER BY last_seen DESC LIMIT 50`,
+  ).all()).results;
+  const recent = (await db.prepare("SELECT id,created_at,method,path,message,stack FROM error_log ORDER BY id DESC LIMIT 20").all()).results;
+  return json({ ...summary, grouped, recent });
+}
