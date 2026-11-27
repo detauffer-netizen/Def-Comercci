@@ -101,6 +101,7 @@
       <a href="#inicio" data-view="inicio"><svg class="icon"><use href="#i-home"/></svg><span>Início</span></a>
       <a href="#produtos" data-view="produtos" data-perm="products"><svg class="icon"><use href="#i-box"/></svg><span>Produtos</span></a>
       <a href="#pedidos" data-view="pedidos" data-perm="orders"><svg class="icon"><use href="#i-receipt"/></svg><span>Vendas</span><b id="pending-badge" class="nav-count" hidden></b></a>
+      <a href="#divulgacao" data-view="divulgacao" data-perm="products"><svg class="icon"><use href="#i-spark"/></svg><span>Divulgação</span></a>
       <a href="#clientes" data-view="clientes" data-perm="customers"><svg class="icon"><use href="#i-users"/></svg><span>Clientes</span></a>
       <a href="#loja" data-view="loja" data-perm="owner"><svg class="icon"><use href="#i-store"/></svg><span>Minha loja</span></a>
     </nav>
@@ -275,6 +276,71 @@
       <div id="order-list" class="order-list"></div>
     </section>
 
+    <section id="view-divulgacao" class="view" aria-labelledby="h-divulgacao" hidden>
+      <div class="view-head"><h1 id="h-divulgacao">Divulgação</h1></div>
+      <div class="card art-card" id="art-card">
+        <h2>Arte de oferta</h2>
+        <p class="muted">Escolha um produto e baixe uma imagem pronta para o Instagram, o Status ou o WhatsApp. Preço e desconto vêm do cadastro (nada é inventado).</p>
+        <div class="art-layout">
+          <div class="art-controls">
+            <label class="field"><span>Produto</span><select id="art-product" class="input"></select></label>
+            <div class="field"><span>Formato</span>
+              <div class="pay-methods art-formats" id="art-formats" role="radiogroup" aria-label="Formato da arte">
+                <button type="button" role="radio" data-format="feed" aria-checked="true">Feed 4:5</button>
+                <button type="button" role="radio" data-format="story" aria-checked="false">Status 9:16</button>
+                <button type="button" role="radio" data-format="square" aria-checked="false">Quadrado</button>
+              </div>
+            </div>
+            <div class="field"><span>Estilo</span>
+              <div class="pay-methods art-formats" id="art-styles" role="radiogroup" aria-label="Estilo da arte">
+                <button type="button" role="radio" data-style="offer" aria-checked="true">Oferta</button>
+                <button type="button" role="radio" data-style="new" aria-checked="false">Novidade</button>
+                <button type="button" role="radio" data-style="clean" aria-checked="false">Minimalista</button>
+              </div>
+            </div>
+            <label class="field"><span>Chamada</span><input id="art-headline" maxlength="40" placeholder="Ex.: Oferta da semana"></label>
+            <label class="field"><span>Texto do botão</span><input id="art-cta" maxlength="40" value="Peça pelo WhatsApp"></label>
+            <label class="check"><input type="checkbox" id="art-qr" checked> <span>Incluir QR Code do produto</span></label>
+            <label class="check"><input type="checkbox" id="art-price" checked> <span>Mostrar o preço</span></label>
+            <div class="row-actions">
+              <button type="button" class="btn btn-primary" id="art-download"><svg class="icon icon-sm"><use href="#i-download"/></svg>Baixar imagem</button>
+              <button type="button" class="btn btn-ghost" id="art-share" hidden><svg class="icon icon-sm"><use href="#i-share"/></svg>Compartilhar</button>
+            </div>
+          </div>
+          <div class="art-preview"><canvas id="art-canvas" width="1080" height="1350" role="img" aria-label="Prévia da arte"></canvas></div>
+        </div>
+      </div>
+      <div class="card" id="qr-card">
+        <h2>QR Codes</h2>
+        <p class="muted">Para o balcão, embalagens, cartões e cartazes: o cliente aponta a câmera e abre a sua vitrine.</p>
+        <div class="grid-2">
+          <label class="field"><span>Levar para</span><select id="qr-target" class="input">
+            <option value="store">A vitrine da loja</option>
+            <option value="product">Um produto</option>
+            <option value="category">Uma categoria</option>
+          </select></label>
+          <label class="field" id="qr-item-field" hidden><span id="qr-item-label">Produto</span><select id="qr-item" class="input"></select></label>
+        </div>
+        <div class="qr-box">
+          <div id="qr-preview" class="qr-preview"></div>
+          <div class="qr-info">
+            <p class="qr-url" id="qr-url"></p>
+            <div class="row-actions">
+              <button type="button" class="btn btn-blue btn-sm" id="qr-download"><svg class="icon icon-sm"><use href="#i-download"/></svg>Baixar PNG</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="qr-print"><svg class="icon icon-sm"><use href="#i-print"/></svg>Imprimir cartaz</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="ai-campaign-card" hidden>
+        <h2>Assistente de divulgação <span class="badge">IA</span></h2>
+        <p class="muted">Gere mensagens para WhatsApp e Instagram com os seus produtos e preços.</p>
+        <label class="field"><span>O que você quer divulgar?</span><input id="campaign-goal" maxlength="300" placeholder="Ex.: promoção de fim de semana, novidades de Natal"></label>
+        <button type="button" class="btn btn-blue" id="campaign-go"><svg class="icon icon-sm"><use href="#i-spark"/></svg>Gerar textos</button>
+        <div id="campaign-out"></div>
+      </div>
+    </section>
+
     <section id="view-clientes" class="view" aria-labelledby="h-clientes" hidden>
       <div class="view-head">
         <h1 id="h-clientes">Clientes</h1>
@@ -352,13 +418,6 @@
           <div class="card" id="plan-card">
             <h2>Plano e assinatura</h2>
             <div id="plan-box"></div>
-          </div>
-          <div class="card" id="ai-campaign-card" hidden>
-            <h2>Assistente de divulgação <span class="badge">IA</span></h2>
-            <p class="muted">Gere mensagens para WhatsApp e Instagram com os seus produtos e preços.</p>
-            <label class="field"><span>O que você quer divulgar?</span><input id="campaign-goal" maxlength="300" placeholder="Ex.: promoção de fim de semana, novidades de Natal"></label>
-            <button type="button" class="btn btn-blue" id="campaign-go"><svg class="icon icon-sm"><use href="#i-spark"/></svg>Gerar textos</button>
-            <div id="campaign-out"></div>
           </div>
           <div class="card" id="coupons-card">
             <h2>Cupons de desconto</h2>

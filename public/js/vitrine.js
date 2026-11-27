@@ -534,6 +534,9 @@ async function start() {
     const buyer = JSON.parse(localStorage.getItem("def-buyer") || "null");
     if (buyer) for (const k of ["customer_name", "customer_phone"]) $("checkout").elements[k].value = buyer[k] || "";
   } catch { /* opcional */ }
+  // Link de QR Code/campanha para uma categoria: ?categoria=Vestidos
+  const fromLink = new URLSearchParams(location.search).get("categoria");
+  if (fromLink && store.products.some((p) => p.category === fromLink)) category = fromLink;
   restoreReminder();
   loadCart();
   setupDelivery();
