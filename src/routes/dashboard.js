@@ -124,6 +124,9 @@ export async function dashboard(request, env, session) {
   const stale = products.filter((p) => p.stock > 0 && !soldRecently.has(p.id) && (!p.created_at || p.created_at < staleCutoff)).map((p) => p.id);
 
   const pending = (await db.prepare("SELECT COUNT(*) AS n FROM orders WHERE store_id=? AND status='pending'").bind(storeId).first()).n;
+  const receivable = (await db.prepare(
+    "SELECT COALESCE(SUM(receivable_cents),0) AS cents, COUNT(*) AS n FROM orders WHERE store_id=? AND status='completed' AND receivable_cents>0",
+  ).bind(storeId).first());
   const carts = (await db.prepare(
     "SELECT COUNT(*) AS n FROM abandoned_carts WHERE store_id=? AND status='open' AND updated_at <= datetime('now','-30 minutes')",
   ).bind(storeId).first()).n;
@@ -143,6 +146,7 @@ export async function dashboard(request, env, session) {
     period, start, end, previous_start: prevStart, previous_end: prevEnd,
     current, previous,
     pending_orders: pending,
+    receivable: { cents: receivable.cents, sales: receivable.n },
     top_products: top,
     stock: {
       units, cost_value: stockCost, sale_value: stockSale,

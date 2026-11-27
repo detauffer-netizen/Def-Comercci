@@ -302,3 +302,55 @@
 .dash-head h2 { min-width: 0; }
 .search { min-width: 0; max-width: 100%; }
 .search input { min-width: 0; width: 100%; }
+
+/* Botão de ação rápida (celular) */
+.fab { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 30; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--orange-500); color: var(--navy-950); box-shadow: 0 10px 24px rgb(255 122 0 / 35%); display: grid; place-items: center; cursor: pointer; }
+.fab .icon { width: 26px; height: 26px; }
+.fab:focus-visible { outline: 3px solid var(--blue-600); outline-offset: 3px; }
+@media (min-width: 900px) { .fab { display: none; } }
+.quick-actions { display: grid; gap: 10px; }
+.quick-action { display: flex; gap: 12px; align-items: center; text-align: left; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; font: inherit; color: inherit; cursor: pointer; }
+.quick-action .icon { color: var(--blue-600); flex: none; }
+.quick-action span { display: grid; gap: 2px; min-width: 0; }
+.quick-action small { color: var(--muted); }
+.quick-action:hover, .quick-action:focus-visible { border-color: var(--blue-600); }
+
+/* PDV */
+.sale-dialog { width: min(720px, 100vw); }
+.sale-search { margin-bottom: 8px; }
+.sale-results { display: grid; gap: 6px; margin-bottom: 12px; }
+.sale-result { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.sale-result span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sale-result small { display: block; color: var(--muted); }
+.sale-result:disabled { opacity: .55; cursor: not-allowed; }
+.sale-items { display: grid; gap: 8px; margin-bottom: 12px; }
+.sale-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.sale-line .name { min-width: 0; overflow-wrap: anywhere; }
+.sale-line .name small { display: block; color: var(--muted); }
+.qty { display: inline-flex; align-items: center; gap: 4px; }
+.qty output { min-width: 28px; text-align: center; font-weight: 700; }
+.sale-sum { display: grid; gap: 4px; padding: 10px 12px; background: var(--bg); border-radius: var(--radius-sm); margin-bottom: 12px; }
+.sale-sum div { display: flex; justify-content: space-between; gap: 8px; }
+.sale-sum .total { font-size: 1.25rem; font-weight: 800; }
+.pay-box { border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
+.pay-box legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
+.pay-methods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pay-methods button { min-height: 44px; border: 1px solid #cdd7e6; border-radius: var(--radius-sm); background: #fff; font: inherit; font-weight: 600; color: inherit; cursor: pointer; padding: 6px; }
+.pay-methods button[aria-checked=true] { border-color: var(--blue-600); background: var(--blue-50); color: var(--blue-700); box-shadow: inset 0 0 0 1px var(--blue-600); }
+.pay-extra { margin-top: 10px; }
+.mixed-left { grid-column: 1 / -1; margin: 0; }
+.receipt { font-size: 15px; }
+.receipt h3 { margin: 0 0 2px; }
+.receipt .line { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.receipt .line span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.receipt .sep { border-top: 1px dashed #b8c4d6; margin: 8px 0; }
+.receipt .big { font-weight: 800; font-size: 1.15rem; }
+.receipt .fiscal { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.receipt-ok { display: flex; align-items: center; gap: 8px; color: var(--ok); font-weight: 700; margin-bottom: 10px; }
+.order-pay { font-size: 14px; color: var(--muted); margin: 6px 0 0; }
+@media print {
+  body.printing-receipt > *:not(#sale-dialog) { display: none !important; }
+  body.printing-receipt #sale-dialog { position: static; box-shadow: none; max-height: none; width: 80mm; margin: 0; }
+  body.printing-receipt #sale-dialog .dialog-head, body.printing-receipt #sale-dialog .receipt-actions, body.printing-receipt #sale-dialog::backdrop { display: none !important; }
+  body.printing-receipt .receipt-ok { display: none; }
+}

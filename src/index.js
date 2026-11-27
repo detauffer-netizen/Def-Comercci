@@ -16,6 +16,7 @@ import * as twofactor from "./routes/twofactor.js";
 import * as ai from "./routes/ai.js";
 import * as carts from "./routes/carts.js";
 import * as dashboard from "./routes/dashboard.js";
+import * as sales from "./routes/sales.js";
 import * as billing from "./routes/billing.js";
 import { recordError } from "./lib/errors.js";
 import { robots, sitemap, storefrontPage } from "./lib/seo.js";
@@ -72,6 +73,7 @@ const ROUTES = [
   ["PUT", "/api/products/:id/images/order", panel.reorderProductImages, "products"],
   ["GET", "/api/stock-movements", panel.stockMovements, "products"],
   ["GET", "/api/orders", panel.listOrders, "orders"],
+  ["POST", "/api/sales", sales.createSale, "orders"],
   ["PATCH", "/api/orders/:id", panel.updateOrderStatus, "orders"],
   ["GET", "/api/notifications", panel.notifications, "orders"],
   ["GET", "/api/abandoned-carts", carts.listAbandonedCarts, "orders"],

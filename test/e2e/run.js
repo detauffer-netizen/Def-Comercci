@@ -371,6 +371,7 @@ try {
     await panel.reload();
     await panel.locator("#plan-box .plan-option", { hasText: "Profissional" }).waitFor();
     await panel.locator("#plan-box", { hasText: "Os pagamentos ainda não foram ativados" }).waitFor();
+    assert.doesNotMatch(await panel.locator("#plan-box").textContent(), /null|undefined/);
     // Lojista não entra na administração.
     const merchantAdmin = await mobile.newPage();
     await merchantAdmin.goto(url + "/admin");
@@ -687,6 +688,39 @@ try {
     await noHorizontalScroll(panel, "carrinhos abandonados");
     await item.getByRole("button", { name: "Descartar" }).click();
     await panel.locator("#order-list", { hasText: "Nenhum carrinho abandonado" }).waitFor();
+    await panel.locator("#order-filters").getByRole("button", { name: "Todos" }).click();
+  });
+
+  await check("PDV: venda no balcão pelo botão de ação, troco, comprovante e baixa no estoque", async () => {
+    const created = await panel.request.post(url + "/api/products", {
+      headers: { Origin: url, "Content-Type": "application/json" },
+      data: { name: "Caneca Balcão", price_cents: 2500, stock: 5, barcode: "7890000000017", active: false },
+    });
+    assert.equal(created.status(), 201);
+    await panel.goto(url + "/painel#inicio");
+    await panel.locator("#fab").click();
+    await panel.locator("#quick-dialog").getByRole("button", { name: /Registrar venda/ }).click();
+    const dlg = panel.locator("#sale-dialog");
+    await dlg.getByLabel("Buscar produto").fill("7890000000017");
+    await dlg.getByLabel("Buscar produto").press("Enter"); // como um leitor de código de barras
+    await dlg.locator(".sale-line", { hasText: "Caneca Balcão" }).waitFor();
+    await dlg.getByRole("button", { name: "Aumentar Caneca Balcão" }).click();
+    await dlg.getByRole("radio", { name: "Dinheiro" }).click();
+    await dlg.getByLabel("Valor recebido (R$)").fill("60");
+    await dlg.locator("#cash-change", { hasText: "Troco: R$" }).waitFor();
+    assert.doesNotMatch(await dlg.locator("#sale-sum").textContent(), /null|undefined/);
+    await noHorizontalScroll(panel, "pdv");
+    await shot(panel, "19-pdv-mobile");
+    await dlg.getByRole("button", { name: /Finalizar venda · R\$\s?50,00/ }).click();
+    await dlg.locator("#receipt", { hasText: "não é documento fiscal" }).waitFor();
+    assert.match(await dlg.locator("#receipt").textContent(), /Troco.*R\$\s?10,00/);
+    await dlg.getByRole("button", { name: "Nova venda" }).click();
+    await dlg.locator("[data-close]").click();
+    const product = (await panel.request.get(url + "/api/products").then((r) => r.json())).find((p) => p.name === "Caneca Balcão");
+    assert.equal(product.stock, 3);
+    await panel.goto(url + "/painel#pedidos");
+    await panel.locator("#order-filters").getByRole("button", { name: "No balcão" }).click();
+    await panel.locator(".order", { hasText: "Caneca Balcão" }).filter({ hasText: "Balcão" }).waitFor();
     await panel.locator("#order-filters").getByRole("button", { name: "Todos" }).click();
   });
 
