@@ -56,6 +56,7 @@ export async function deleteStore(request, env, session) {
     db.prepare("DELETE FROM products WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM orders WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM coupons WHERE store_id=?").bind(id),
+    db.prepare("DELETE FROM ai_usage WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM stock_movements WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM audit_log WHERE store_id=?").bind(id),
     db.prepare("DELETE FROM memberships WHERE store_id=?").bind(id),

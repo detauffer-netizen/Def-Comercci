@@ -25,7 +25,12 @@ export async function overview(request, env) {
             COALESCE(SUM(created_at >= datetime('now','-30 days')),0) AS orders_30d
        FROM orders`,
   ).first();
-  return json({ ...stores, ...users, ...products, ...images, ...orders });
+  const ai = await db.prepare(
+    `SELECT COALESCE(SUM(CASE WHEN day = date('now') THEN requests END),0) AS ai_today,
+            COALESCE(SUM(CASE WHEN day >= date('now','-30 days') THEN requests END),0) AS ai_30d
+       FROM ai_usage`,
+  ).first();
+  return json({ ...stores, ...users, ...products, ...images, ...orders, ...ai });
 }
 
 export async function listStores(request, env) {
@@ -39,7 +44,8 @@ export async function listStores(request, env) {
             (SELECT COUNT(*) FROM orders o WHERE o.store_id=s.id) AS orders,
             (SELECT COALESCE(SUM(total_cents),0) FROM orders o WHERE o.store_id=s.id AND o.status='completed') AS revenue,
             (SELECT COALESCE(SUM(bytes),0) FROM product_images i WHERE i.store_id=s.id) AS image_bytes,
-            (SELECT MAX(created_at) FROM orders o WHERE o.store_id=s.id) AS last_order
+            (SELECT MAX(created_at) FROM orders o WHERE o.store_id=s.id) AS last_order,
+            (SELECT COALESCE(SUM(requests),0) FROM ai_usage a WHERE a.store_id=s.id AND a.day >= date('now','-30 days')) AS ai_30d
        FROM stores s
       WHERE (? = '' OR lower(s.name) LIKE ? ESCAPE '\\' OR s.slug LIKE ? ESCAPE '\\'
              OR EXISTS (SELECT 1 FROM memberships m JOIN users u ON u.id=m.user_id

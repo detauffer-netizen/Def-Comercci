@@ -24,5 +24,13 @@ migrations_dir = "migrations"
 binding = "IMAGES"
 bucket_name = "def-commerce-images"
 
+# Inteligência artificial (Workers AI). 10.000 Neurons grátis por dia na conta;
+# acima disso exige o plano Workers Paid. Limite por loja em AI_DAILY_LIMIT.
+[ai]
+binding = "AI"
+
+[vars]
+AI_DAILY_LIMIT = "30"
+
 [observability]
 enabled = true

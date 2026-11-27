@@ -99,10 +99,23 @@ const assets = {
   },
 };
 
-export function createEnv({ images = true } = {}) {
+// IA simulada para testes: devolve o que a função "respond" decidir e
+// registra as chamadas. Os testes verificam o NOSSO código, não o modelo.
+export function fakeAI(respond) {
+  const calls = [];
+  return {
+    calls,
+    async run(model, input) {
+      calls.push({ model, input });
+      return respond(model, input);
+    },
+  };
+}
+
+export function createEnv({ images = true, ai = null, vars = {} } = {}) {
   const DB = new TestD1();
   migrate(DB);
-  return { DB, ASSETS: assets, ...(images ? { IMAGES: new MemoryR2() } : {}) };
+  return { DB, ASSETS: assets, ...(images ? { IMAGES: new MemoryR2() } : {}), ...(ai ? { AI: ai } : {}), ...vars };
 }
 
 export const ORIGIN = "https://def-commerce.test";
