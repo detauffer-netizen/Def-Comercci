@@ -1,10 +1,12 @@
 {
   "name": "def-commerce",
-  "version": "1.9.0-beta",
+  "version": "1.10.0-beta",
   "private": true,
   "type": "module",
   "description": "Plataforma SaaS multiempresa de catálogos digitais com pedidos pelo WhatsApp (Cloudflare Workers + D1 + R2).",
-  "engines": { "node": ">=22.5" },
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
     "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
     "test:e2e": "node test/e2e/run.js",
@@ -17,6 +19,7 @@
     "rollback": "wrangler rollback"
   },
   "devDependencies": {
+    "jsqr": "^1.4.0",
     "wrangler": "^4.40.0"
   }
 }
