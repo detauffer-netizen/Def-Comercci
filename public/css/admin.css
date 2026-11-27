@@ -1,0 +1,33 @@
+/* Painel do super administrador. */
+.admin-login { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--navy-900); }
+.admin-login form { width: min(400px, 100%); }
+.admin-login h1 { margin: 18px 0 14px; }
+.admin-top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; background: var(--navy-900); color: #fff; }
+.admin-top .btn-ghost { color: #fff; border-color: #ffffff33; }
+.admin-top .btn-ghost:hover { background: #ffffff14; }
+.admin-top .muted { color: #b9cbec; }
+.admin-actions { display: flex; align-items: center; gap: 8px; }
+.admin-main { max-width: 1240px; margin: 0 auto; padding: 18px 16px 40px; display: grid; gap: 16px; }
+.admin-main h1 { font-size: 1.35rem; }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+.kpi small { display: block; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.kpi strong { display: block; font-size: 1.3rem; margin-top: 4px; }
+@media (min-width: 900px) { .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-head h2 { margin: 0; }
+.search { flex: 0 1 320px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #cdd7e6; border-radius: var(--radius-sm); background: #fff; }
+.search input { border: 0; outline: 0; min-height: 42px; flex: 1; min-width: 0; font: inherit; }
+.search .icon { color: var(--muted); }
+.table-wrap { overflow-x: auto; margin: 0 -1.1rem; padding: 0 1.1rem; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 860px; }
+th { text-align: left; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding: 8px; border-bottom: 1px solid var(--line); }
+td { padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td small { display: block; color: var(--muted); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+#audit summary { display: flex; gap: 8px; align-items: center; cursor: pointer; font-weight: 600; list-style: none; }
+#audit summary::-webkit-details-marker { display: none; }
+.row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.row .grow { flex: 1; min-width: 0; }
+.row small { color: var(--muted); display: block; }
+@media (max-width: 480px) { .hide-sm { display: none; } }

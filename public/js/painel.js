@@ -11,6 +11,15 @@ const STATUS = {
   cancelled: { label: "Cancelado", badge: "badge-danger" },
 };
 const VIEWS = ["inicio", "produtos", "pedidos", "clientes", "loja"];
+const VIEW_PERMISSION = { inicio: null, produtos: "products", pedidos: "orders", clientes: "customers", loja: "owner" };
+
+function can(permission) {
+  if (!permission) return true;
+  const user = state.me?.user;
+  if (!user) return false;
+  if (permission === "owner") return user.role === "owner";
+  return user.role === "owner" || user.permissions.includes(permission);
+}
 
 function fail(error) {
   if (error instanceof ApiError && error.status === 401) return showAuth("Sua sessão expirou. Entre novamente.");
@@ -87,6 +96,10 @@ async function start() {
   $("auth").hidden = true;
   $("app").hidden = false;
   renderStoreHeader();
+  for (const a of document.querySelectorAll(".nav a")) a.hidden = !can(a.dataset.perm);
+  $("sidebar-nav").style.setProperty("--nav-items", String([...document.querySelectorAll(".nav a")].filter((a) => !a.hidden).length));
+  // Com senha provisória, nada é carregado até a troca (a API recusaria).
+  if (state.me.user.must_change_password) return openPassword(true);
   route();
 }
 
@@ -103,7 +116,9 @@ function renderStoreHeader() {
 }
 
 function route() {
-  const view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
+  if (state.me.user.must_change_password) return;
+  let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
+  if (!can(VIEW_PERMISSION[view])) view = "inicio";
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
   for (const a of document.querySelectorAll(".nav a")) {
     if (a.dataset.view === view) a.setAttribute("aria-current", "page");
@@ -124,24 +139,37 @@ function empty(container, iconName, text, action) {
 // ---------- Início ----------
 
 async function loadHome() {
-  loading($("recent-orders"));
-  const [metrics, orders, products] = await Promise.all([api("/api/metrics"), api("/api/orders"), api("/api/products")]);
+  const showReports = can("reports");
+  const showOrders = can("orders");
+  const showProducts = can("products");
+  $("kpis").hidden = !showReports;
+  $("recent-card").hidden = !showOrders;
+  $("stock-card").hidden = !showProducts;
+  if (showOrders) loading($("recent-orders"));
+  const [metrics, orders, products] = await Promise.all([
+    showReports ? api("/api/metrics") : null,
+    showOrders ? api("/api/orders") : [],
+    showProducts ? api("/api/products") : [],
+  ]);
   state.metrics = metrics;
   state.orders = orders;
   state.products = products;
   updatePendingBadge();
+  $("h-inicio").textContent = state.me.user.role === "owner" ? "Olá! Veja como está sua loja" : `Olá${state.me.user.name ? ", " + state.me.user.name.split(" ")[0] : ""}!`;
 
   const kpi = (label, value, cls = "") => h("div", { class: `kpi ${cls}` }, h("small", { text: label }), h("strong", { text: value }));
-  $("kpis").replaceChildren(
-    kpi("Vendas concluídas", money(metrics.revenue), "highlight"),
-    kpi("Últimos 30 dias", money(metrics.revenue_30d)),
-    kpi("Pedidos pendentes", String(metrics.pending)),
-    kpi("Ticket médio", money(metrics.average_ticket)),
-    kpi("Pedidos (24 h)", String(metrics.orders_24h)),
-    kpi("Clientes", String(metrics.customers)),
-    kpi("Produtos ativos", String(metrics.active)),
-    kpi("Unidades em estoque", String(metrics.units)),
-  );
+  if (metrics) {
+    $("kpis").replaceChildren(
+      kpi("Vendas concluídas", money(metrics.revenue), "highlight"),
+      kpi("Últimos 30 dias", money(metrics.revenue_30d)),
+      kpi("Pedidos pendentes", String(metrics.pending)),
+      kpi("Ticket médio", money(metrics.average_ticket)),
+      kpi("Pedidos (24 h)", String(metrics.orders_24h)),
+      kpi("Clientes", String(metrics.customers)),
+      kpi("Produtos ativos", String(metrics.active)),
+      kpi("Unidades em estoque", String(metrics.units)),
+    );
+  }
 
   const s = state.me.store;
   const steps = [
@@ -151,26 +179,39 @@ async function loadHome() {
     ["Personalize cor e logotipo", !!s.logo_url || s.accent !== "#2563eb", "#loja"],
     ["Compartilhe sua vitrine", orders.length > 0, "#loja"],
   ];
-  $("onboarding").hidden = steps.every(([, done]) => done);
+  $("onboarding").hidden = !can("owner") || steps.every(([, done]) => done);
   $("onboarding-steps").replaceChildren(...steps.map(([text, done, href]) =>
     h("li", { class: done ? "done" : "" }, h("span", { class: "dot" }, done ? icon("check", "icon icon-sm") : null),
       done ? h("span", { text }) : h("a", { href, text }))));
 
-  const recent = orders.slice(0, 5);
-  if (!recent.length) empty($("recent-orders"), "receipt", "Nenhum pedido ainda. Compartilhe sua vitrine para começar a vender.");
-  else $("recent-orders").replaceChildren(...recent.map((o) => h("div", { class: "row" },
-    h("div", { class: "grow" }, h("strong", { text: o.customer_name || "Cliente" }), h("small", { text: `#${o.code} · ${formatDate(o.created_at)}` })),
-    h("div", { style: { textAlign: "right" } }, h("strong", { text: money(o.total_cents) }), h("div", {}, h("span", { class: `badge ${STATUS[o.status].badge}`, text: STATUS[o.status].label }))))));
+  if (showOrders) {
+    const recent = orders.slice(0, 5);
+    if (!recent.length) empty($("recent-orders"), "receipt", "Nenhum pedido ainda. Compartilhe sua vitrine para começar a vender.");
+    else $("recent-orders").replaceChildren(...recent.map((o) => h("div", { class: "row" },
+      h("div", { class: "grow" }, h("strong", { text: o.customer_name || "Cliente" }), h("small", { text: `#${o.code} · ${formatDate(o.created_at)}` })),
+      h("div", { style: { textAlign: "right" } }, h("strong", { text: money(o.total_cents) }), h("div", {}, h("span", { class: `badge ${STATUS[o.status].badge}`, text: STATUS[o.status].label }))))));
+  }
 
-  const alerts = products.filter((p) => p.active && p.stock <= 3).sort((a, b) => a.stock - b.stock).slice(0, 6);
-  if (!alerts.length) empty($("stock-alerts"), "check", "Nenhum produto com estoque baixo.");
-  else $("stock-alerts").replaceChildren(...alerts.map((p) => h("div", { class: "row" },
-    h("div", { class: "grow" }, h("strong", { text: p.name }), h("small", { text: p.sku ? `SKU ${p.sku}` : p.category || "" })),
-    h("span", { class: `badge ${p.stock ? "badge-warn" : "badge-danger"}`, text: p.stock ? `${p.stock} un.` : "Esgotado" }))));
+  if (showProducts) {
+    const alerts = [];
+    for (const p of products.filter((x) => x.active)) {
+      if (p.variants.length) for (const v of p.variants.filter((x) => x.active && x.stock <= 3)) alerts.push({ name: `${p.name} · ${v.name}`, stock: v.stock, sub: v.sku || p.category || "" });
+      else if (p.stock <= 3) alerts.push({ name: p.name, stock: p.stock, sub: p.sku ? `SKU ${p.sku}` : p.category || "" });
+    }
+    alerts.sort((a, b) => a.stock - b.stock);
+    if (!alerts.length) empty($("stock-alerts"), "check", "Nenhum produto com estoque baixo.");
+    else $("stock-alerts").replaceChildren(...alerts.slice(0, 6).map((p) => h("div", { class: "row" },
+      h("div", { class: "grow" }, h("strong", { text: p.name }), h("small", { text: p.sub })),
+      h("span", { class: `badge ${p.stock ? "badge-warn" : "badge-danger"}`, text: p.stock ? `${p.stock} un.` : "Esgotado" }))));
+  }
+  if (!showReports && !showOrders && !showProducts) {
+    $("kpis").hidden = false;
+    empty($("kpis"), "store", "Seu acesso ainda não inclui nenhuma área. Fale com o proprietário da loja.");
+  }
 }
 
 function updatePendingBadge() {
-  const pending = state.metrics?.pending ?? state.orders.filter((o) => o.status === "pending").length;
+  const pending = state.metrics?.pending ?? (state.orders || []).filter((o) => o.status === "pending").length;
   const badge = $("pending-badge");
   badge.hidden = !pending;
   badge.textContent = pending > 99 ? "99+" : String(pending);
@@ -194,7 +235,7 @@ function renderProducts() {
     if (q && !`${p.name} ${p.sku} ${p.category}`.toLowerCase().includes(q)) return false;
     if (filter === "active") return p.active;
     if (filter === "inactive") return !p.active;
-    if (filter === "low") return p.stock <= 3;
+    if (filter === "low") return p.stock <= 3 || p.variants.some((v) => v.active && v.stock <= 3);
     if (filter === "featured") return p.featured;
     return true;
   });
@@ -213,6 +254,7 @@ function renderProducts() {
         h("span", {}, h("b", { text: money(p.final_price_cents) }), p.final_price_cents < p.price_cents ? h("span", { class: "price-old", text: money(p.price_cents) }) : null),
         h("span", { class: "meta" },
           h("span", { class: `badge ${stockBadge[0]}`, text: stockBadge[1] }),
+          p.variants.length ? h("span", { class: "badge" }, icon("layers", "icon icon-sm"), `${p.variants.length} variações`) : null,
           p.featured ? h("span", { class: "badge badge-orange" }, icon("star", "icon icon-sm"), "Destaque") : null,
           p.active ? null : h("span", { class: "badge", text: "Oculto" }),
           p.category ? h("span", { class: "badge", text: p.category }) : null)));
@@ -252,6 +294,9 @@ function openProduct(product) {
   } else {
     f.active.checked = true;
   }
+  $("opt1").value = "";
+  $("opt2").value = "";
+  setVariants(product ? product.variants : []);
   renderImages();
   $("product-dialog").showModal();
   f.name.focus();
@@ -292,6 +337,68 @@ async function uploadImages(productId, files) {
   return failed;
 }
 
+// ---------- Variações ----------
+
+function variantRow(v = {}) {
+  const input = (k, attrs) => h("input", { "data-k": k, ...attrs });
+  const row = h("div", { class: `variant-row ${v.active === false ? "inactive" : ""}`, dataset: { id: v.id || "", active: v.active === false ? "0" : "1" } },
+    input("name", { value: v.name || "", maxlength: "60", placeholder: "Ex.: M / Azul", "aria-label": "Nome da variação" }),
+    input("sku", { value: v.sku || "", maxlength: "60", placeholder: "SKU", "aria-label": "SKU da variação" }),
+    input("price", { value: centsToInput(v.price_cents ?? null), inputmode: "decimal", placeholder: "Padrão", "aria-label": "Preço da variação" }),
+    input("stock", { value: v.stock ?? 0, type: "number", min: "0", step: "1", inputmode: "numeric", "aria-label": "Estoque da variação" }),
+    h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": "Remover variação", onclick: () => { row.remove(); updateStockField(); } }, icon("trash", "icon icon-sm")));
+  row.addEventListener("input", updateStockField);
+  return row;
+}
+
+function setVariants(list) {
+  $("variant-rows").replaceChildren(...list.map(variantRow));
+  $("has-variants").checked = list.length > 0;
+  $("variant-editor").hidden = !list.length;
+  updateStockField();
+}
+
+function updateStockField() {
+  const stock = $("product-form").elements.stock;
+  const on = $("has-variants").checked;
+  stock.disabled = on;
+  if (on) {
+    const total = [...document.querySelectorAll("#variant-rows .variant-row")]
+      .filter((r) => r.dataset.active !== "0")
+      .reduce((sum, r) => sum + (Number(r.querySelector("[data-k=stock]").value) || 0), 0);
+    stock.value = String(total);
+  }
+}
+
+function generateVariants() {
+  const split = (text) => text.split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+  const a = split($("opt1").value);
+  const b = split($("opt2").value);
+  if (!a.length) return toast("Informe as opções separadas por vírgula, por exemplo: P, M, G.", { error: true });
+  const names = b.length ? a.flatMap((x) => b.map((y) => `${x} / ${y}`)) : a;
+  const existing = new Set([...document.querySelectorAll("#variant-rows [data-k=name]")].map((i) => i.value.trim().toLowerCase()));
+  for (const name of names.slice(0, 60)) if (!existing.has(name.toLowerCase())) $("variant-rows").append(variantRow({ name, stock: 0 }));
+  updateStockField();
+}
+
+function readVariants() {
+  if (!$("has-variants").checked) return { variants: [] };
+  const rows = [...document.querySelectorAll("#variant-rows .variant-row")];
+  if (!rows.length) return { error: "Adicione ao menos uma variação ou desmarque a opção de variações." };
+  const variants = [];
+  for (const row of rows) {
+    const get = (k) => row.querySelector(`[data-k=${k}]`).value.trim();
+    const name = get("name");
+    if (!name) return { error: "Dê um nome a cada variação (ex.: P / Azul)." };
+    const price = parseMoney(get("price"));
+    if (Number.isNaN(price)) return { error: `Preço inválido na variação ${name}.` };
+    const stock = Number(get("stock"));
+    if (!Number.isInteger(stock) || stock < 0) return { error: `Estoque inválido na variação ${name}.` };
+    variants.push({ id: row.dataset.id || undefined, name, sku: get("sku"), price_cents: price, stock, active: row.dataset.active !== "0" });
+  }
+  return { variants };
+}
+
 function readProductForm() {
   const f = $("product-form").elements;
   const price = parseMoney(f.price.value);
@@ -301,10 +408,13 @@ function readProductForm() {
   if (price === null || Number.isNaN(price)) return "Informe um preço válido, por exemplo 59,90.";
   if (Number.isNaN(promo)) return "Preço promocional inválido.";
   if (promo !== null && promo >= price) return "O preço promocional deve ser menor que o preço normal.";
-  if (f.stock.value === "" || !Number.isInteger(stock) || stock < 0) return "Informe o estoque (número inteiro, zero ou maior).";
+  const v = readVariants();
+  if (v.error) return v.error;
+  if (!v.variants.length && (f.stock.value === "" || !Number.isInteger(stock) || stock < 0)) return "Informe o estoque (número inteiro, zero ou maior).";
   return {
     name: f.name.value, description: f.description.value, price_cents: price, promo_price_cents: promo,
-    stock, sku: f.sku.value, category: f.category.value, featured: f.featured.checked, active: f.active.checked,
+    stock: v.variants.length ? 0 : stock, sku: f.sku.value, category: f.category.value, featured: f.featured.checked, active: f.active.checked,
+    variants: v.variants,
   };
 }
 
@@ -387,7 +497,7 @@ function renderOrders() {
           h("div", { class: "muted", text: `#${o.code} · ${formatDate(o.created_at)}${o.customer_phone ? " · " + formatPhone(o.customer_phone) : ""}` })),
         h("span", { class: `badge ${st.badge}`, text: st.label })),
       h("div", { class: "order-items" },
-        ...o.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
+        ...o.items.map((i) => h("div", {}, h("span", { text: `${i.quantity}× ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}` }), h("span", { text: money(i.price_cents * i.quantity) }))),
         h("div", { style: { fontWeight: "700", marginTop: "6px" } }, h("span", { text: "Total" }), h("span", { text: money(o.total_cents) }))),
       o.notes ? h("p", { class: "order-notes", text: `Observações: ${o.notes}` }) : null,
       h("div", { class: "order-actions" }, ...actions));
@@ -414,7 +524,7 @@ async function exportOrders(button) {
     downloadCsv(`pedidos-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Pedido", "Data", "Status", "Cliente", "Telefone", "Itens", "Total (R$)", "Observações"],
       orders.map((o) => [o.code, o.created_at, STATUS[o.status].label, o.customer_name, o.customer_phone,
-        o.items.map((i) => `${i.quantity}x ${i.name}`).join(", "), (o.total_cents / 100).toFixed(2).replace(".", ","), o.notes || ""]));
+        o.items.map((i) => `${i.quantity}x ${i.name}${i.variant_name ? ` (${i.variant_name})` : ""}`).join(", "), (o.total_cents / 100).toFixed(2).replace(".", ","), o.notes || ""]));
   });
 }
 
@@ -451,8 +561,103 @@ async function loadStore() {
     preview.style.backgroundImage = s[`${kind}_url`] ? `url("${s[`${kind}_url`]}")` : "";
     document.querySelector(`[data-remove-asset=${kind}]`).hidden = !s[`${kind}_url`];
   }
-  const owner = state.me.user.role === "owner";
-  $("audit-card").hidden = !owner;
+  await loadTeam();
+}
+
+// ---------- Equipe ----------
+
+const PERM_LABELS = { products: "Produtos", orders: "Pedidos", customers: "Clientes", reports: "Indicadores" };
+
+async function loadTeam() {
+  const box = $("team-list");
+  const team = await api("/api/team");
+  box.replaceChildren(...team.map((m) => {
+    const toggles = m.role === "owner"
+      ? h("small", { class: "muted", text: "Proprietário: acesso total" })
+      : h("div", { class: "perm-toggles" }, ...Object.entries(PERM_LABELS).map(([key, label]) => {
+        const input = h("input", { type: "checkbox", value: key });
+        input.checked = m.permissions.includes(key);
+        input.addEventListener("change", async () => {
+          const permissions = [...input.closest(".perm-toggles").querySelectorAll("input:checked")].map((i) => i.value);
+          try {
+            await api(`/api/team/${m.id}`, { method: "PATCH", body: { permissions } });
+            toast(`Acesso de ${m.name || m.email} atualizado.`);
+          } catch (error) {
+            input.checked = !input.checked;
+            fail(error);
+          }
+        });
+        return h("label", { class: "check" }, input, h("span", { text: label }));
+      }));
+    return h("div", { class: "team-member" },
+      h("div", { class: "top" },
+        h("div", {}, h("strong", { text: `${m.name || m.email}${m.is_me ? " (você)" : ""}` }), h("small", { class: "muted", text: m.email })),
+        m.pending_password ? h("span", { class: "badge badge-warn", text: "Aguardando 1º acesso" }) : null,
+        m.role === "owner" ? null : h("button", { class: "btn btn-danger btn-sm", onclick: (e) => removeMember(m, e.currentTarget) }, "Remover")),
+      toggles);
+  }));
+}
+
+async function removeMember(member, button) {
+  if (!confirm(`Remover ${member.name || member.email} da equipe? O acesso ao painel será encerrado imediatamente.`)) return;
+  await busy(button, async () => {
+    await api(`/api/team/${member.id}`, { method: "DELETE" });
+    toast("Pessoa removida da equipe.");
+    await loadTeam();
+  });
+}
+
+async function addMember(event) {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  const permissions = [...form.querySelectorAll("input[name=perm]:checked")].map((i) => i.value);
+  if ((data.password || "").length < 12) return toast("A senha provisória precisa ter pelo menos 12 caracteres.", { error: true });
+  await busy(event.submitter, async () => {
+    await api("/api/team", { method: "POST", body: { name: data.name, email: data.email, password: data.password, permissions } });
+    form.reset();
+    form.closest("details").open = false;
+    toast("Pessoa adicionada. Entregue o e-mail e a senha provisória a ela.");
+    await loadTeam();
+  });
+}
+
+// ---------- Senha ----------
+
+function openPassword(forced = false) {
+  const dialog = $("password-dialog");
+  $("password-form").reset();
+  $("password-error").hidden = true;
+  $("password-intro").hidden = !forced;
+  $("password-close").hidden = forced;
+  $("password-title").textContent = forced ? "Crie sua senha" : "Alterar senha";
+  dialog.dataset.forced = forced ? "1" : "";
+  dialog.showModal();
+}
+
+async function savePassword(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.target));
+  const err = $("password-error");
+  const show = (text) => { err.textContent = text; err.hidden = false; };
+  if (data.new_password.length < 12) return show("A nova senha precisa ter pelo menos 12 caracteres.");
+  if (data.new_password !== data.confirm) return show("As senhas não conferem.");
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    await api("/api/account/password", { method: "POST", body: { current_password: data.current_password, new_password: data.new_password } });
+    $("password-dialog").close();
+    toast("Senha alterada. Outras sessões abertas foram encerradas.");
+    if (state.me.user.must_change_password) {
+      state.me.user.must_change_password = false;
+      route();
+    }
+  } catch (error) {
+    if (error.status === 401) return fail(error);
+    show(error.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function saveSettings(event) {
@@ -574,6 +779,28 @@ for (const btn of document.querySelectorAll("[data-remove-asset]")) {
     await loadStore();
   }));
 }
+$("has-variants").addEventListener("change", (e) => {
+  if (!e.target.checked && document.querySelector("#variant-rows .variant-row") &&
+      !confirm("Remover as variações deste produto? Ao salvar, ele passa a ter um estoque único.")) {
+    e.target.checked = true;
+    return;
+  }
+  if (!e.target.checked) $("variant-rows").replaceChildren();
+  $("variant-editor").hidden = !e.target.checked;
+  if (e.target.checked && !document.querySelector("#variant-rows .variant-row")) $("opt1").focus();
+  updateStockField();
+});
+$("gen-variants").addEventListener("click", generateVariants);
+$("add-variant").addEventListener("click", () => {
+  const row = variantRow({ stock: 0 });
+  $("variant-rows").append(row);
+  row.querySelector("input").focus();
+});
+$("team-form").addEventListener("submit", addMember);
+$("open-password").addEventListener("click", () => openPassword(false));
+$("password-close").addEventListener("click", () => $("password-dialog").close());
+$("password-form").addEventListener("submit", savePassword);
+$("password-dialog").addEventListener("cancel", (e) => { if (e.currentTarget.dataset.forced) e.preventDefault(); });
 $("audit-card").addEventListener("toggle", (e) => { if (e.target.open) loadAudit().catch(fail); });
 
 start();

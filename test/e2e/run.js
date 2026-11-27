@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import assert from "node:assert/strict";
 import { startServer } from "./server.js";
+import { hashPassword } from "../../src/lib/crypto.js";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -17,7 +18,7 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 // PNG 8x8 válido.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGNQTX6NFTEMLQkADGRcwcht3uAAAAAASUVORK5CYII=", "base64");
 
-const { server, url } = await startServer();
+const { server, env, url } = await startServer();
 const browser = await chromium.launch();
 const errors = [];
 let step = "início";
@@ -42,6 +43,11 @@ async function check(name, fn) {
 async function noHorizontalScroll(page, label) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflow <= 1, `${label}: rolagem horizontal de ${overflow}px`);
+}
+
+async function noDialogOverflow(dialog, label) {
+  const overflow = await dialog.evaluate((d) => Math.max(...[d, ...d.querySelectorAll("*")].map((e) => e.scrollWidth - e.clientWidth).filter((n) => !Number.isNaN(n))));
+  assert.ok(overflow <= 1, `${label}: conteúdo do diálogo transborda ${overflow}px`);
 }
 
 async function shot(page, name) {
@@ -205,6 +211,135 @@ try {
     await page.locator("#products .product").first().waitFor();
     await shot(page, "09-vitrine-desktop");
     await desktop.close();
+  });
+
+  await check("produto com variações: gerador, escolha na vitrine e baixa na variação", async () => {
+    await panel.goto(url + "/painel#produtos");
+    await panel.getByRole("button", { name: "Novo produto" }).click();
+    const dialog = panel.locator("#product-dialog");
+    await dialog.getByLabel("Nome do produto").fill("Camiseta Básica");
+    await dialog.getByLabel("Preço (R$)", { exact: true }).fill("59,90");
+    await dialog.getByLabel("Este produto tem opções").check();
+    await dialog.getByLabel("Opção 1").fill("P, M");
+    await dialog.getByLabel("Opção 2 (opcional)").fill("Azul");
+    await dialog.getByRole("button", { name: "Gerar combinações" }).click();
+    const rows = dialog.locator(".variant-row");
+    assert.equal(await rows.count(), 2);
+    await rows.nth(0).locator("[data-k=stock]").fill("2");
+    await rows.nth(1).locator("[data-k=stock]").fill("1");
+    await rows.nth(1).locator("[data-k=price]").fill("64,90");
+    assert.equal(await dialog.getByLabel("Estoque", { exact: true }).inputValue(), "3");
+    await noDialogOverflow(dialog, "formulário de produto");
+    await noHorizontalScroll(panel, "editor de variações");
+    await shot(panel, "10-variacoes-mobile");
+    await dialog.getByRole("button", { name: "Salvar produto" }).click();
+    await dialog.waitFor({ state: "hidden" });
+    const item = panel.locator(".product-item", { hasText: "Camiseta Básica" });
+    await item.waitFor();
+    assert.match(await item.textContent(), /2 variações/);
+    assert.match(await item.textContent(), /3 em estoque/);
+
+    whatsappUrl = "";
+    await shop.goto(url + "/loja/moda-da-ana");
+    const card = shop.locator("#products .product", { hasText: "Camiseta Básica" });
+    assert.match(await card.textContent(), /a partir de/);
+    await card.getByRole("button", { name: "Escolher opção" }).click();
+    const pd = shop.locator("#product-dialog");
+    assert.equal(await pd.getByRole("button", { name: "Adicionar ao pedido" }).isDisabled(), true);
+    await pd.getByRole("radio", { name: "M / Azul" }).click();
+    assert.match(await shop.locator("#pd-price").textContent(), /64,90/);
+    await noDialogOverflow(pd, "detalhe do produto");
+    await shot(shop, "11-vitrine-variacao-mobile");
+    await pd.getByRole("button", { name: "Adicionar ao pedido" }).click();
+    assert.equal(await shop.locator("#cart-count").textContent(), "1");
+    await shop.locator("#cart-bar").click();
+    const cart = shop.locator("#cart-dialog");
+    await cart.getByLabel("Nome").fill("Carlos");
+    await cart.getByLabel("Telefone / WhatsApp").fill("(54) 97777-6666");
+    await cart.getByRole("button", { name: "Enviar pedido pelo WhatsApp" }).click();
+    await shop.waitForURL(/wa\.me/);
+    assert.match(decodeURIComponent(whatsappUrl), /1x Camiseta Básica \(M \/ Azul\)/);
+
+    await panel.goto(url + "/painel#pedidos");
+    const order = panel.locator(".order", { hasText: "Carlos" });
+    await order.waitFor();
+    await order.getByRole("button", { name: "Confirmar e baixar estoque" }).click();
+    await panel.locator(".order", { hasText: "Carlos" }).filter({ hasText: "Confirmado" }).waitFor();
+    await panel.goto(url + "/painel#produtos");
+    await panel.locator(".product-item", { hasText: "Camiseta Básica" }).filter({ hasText: "2 em estoque" }).waitFor();
+  });
+
+  await check("funcionário com acesso só a pedidos troca a senha no primeiro acesso", async () => {
+    await panel.goto(url + "/painel#loja");
+    await panel.locator("#team-card summary").click();
+    const form = panel.locator("#team-form");
+    await form.getByLabel("Nome").fill("Bruno Vendas");
+    await form.getByLabel("E-mail").fill("bruno@exemplo.com.br");
+    await form.getByLabel("Senha provisória").fill("provisoria-123");
+    await form.getByLabel("Produtos e estoque").uncheck();
+    await form.getByRole("button", { name: "Adicionar à equipe" }).click();
+    await panel.locator(".team-member", { hasText: "Bruno Vendas" }).waitFor();
+    assert.match(await panel.locator(".team-member", { hasText: "Bruno Vendas" }).textContent(), /Aguardando 1º acesso/);
+    await noHorizontalScroll(panel, "equipe");
+
+    const staffCtx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+    const staff = await staffCtx.newPage();
+    watch(staff, "funcionário");
+    await staff.goto(url + "/painel");
+    const login = staff.locator("#login");
+    await login.getByLabel("E-mail").fill("bruno@exemplo.com.br");
+    await login.getByLabel("Senha").fill("provisoria-123");
+    await login.getByRole("button", { name: "Entrar no painel" }).click();
+    const pw = staff.locator("#password-dialog");
+    await pw.getByRole("heading", { name: "Crie sua senha" }).waitFor();
+    await pw.getByLabel("Senha atual").fill("provisoria-123");
+    await pw.locator("input[name=new_password]").fill("senha-do-bruno-1");
+    await pw.getByLabel("Repita a nova senha").fill("senha-do-bruno-1");
+    await pw.getByRole("button", { name: "Salvar nova senha" }).click();
+    await pw.waitFor({ state: "hidden" });
+    assert.equal(await staff.locator('.nav a[data-view="produtos"]').isVisible(), false);
+    assert.equal(await staff.locator('.nav a[data-view="loja"]').isVisible(), false);
+    await staff.locator('.nav a[data-view="pedidos"]').click();
+    await staff.locator(".order", { hasText: "Carlos" }).waitFor();
+    await staff.goto(url + "/painel#produtos");
+    await staff.locator("#view-inicio").waitFor();
+    assert.equal(await staff.locator("#view-produtos").isVisible(), false);
+    await noHorizontalScroll(staff, "painel do funcionário");
+    await staffCtx.close();
+  });
+
+  await check("super administrador suspende e reativa uma loja", async () => {
+    const adminId = crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO users(id,email,password_hash) VALUES(?,?,?)").bind(adminId, "admin@defcommerce.test", await hashPassword("admin-senha-forte")).run();
+    await env.DB.prepare("INSERT INTO platform_admins(user_id) VALUES(?)").bind(adminId).run();
+    const adminCtx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const admin = await adminCtx.newPage();
+    watch(admin, "admin");
+    await admin.goto(url + "/admin");
+    const adminLogin = admin.locator("#login");
+    await adminLogin.getByLabel("E-mail").fill("admin@defcommerce.test");
+    await adminLogin.getByLabel("Senha", { exact: true }).fill("admin-senha-forte");
+    await adminLogin.getByRole("button", { name: "Entrar" }).click();
+    const row = admin.locator("#stores tr", { hasText: "Moda da Ana" });
+    await row.waitFor();
+    await shot(admin, "12-admin-desktop");
+    await row.getByRole("button", { name: "Suspender" }).click();
+    await admin.locator("#suspend-dialog").getByLabel("Motivo").fill("Teste de suspensão");
+    await admin.locator("#suspend-dialog").getByRole("button", { name: "Suspender" }).click();
+    await admin.locator("#stores tr", { hasText: "Moda da Ana" }).filter({ hasText: "Suspensa" }).waitFor();
+    const visitor = await adminCtx.newPage();
+    await visitor.goto(url + "/loja/moda-da-ana");
+    await visitor.locator("#store-name", { hasText: "Loja não encontrada" }).waitFor();
+    await admin.locator("#stores tr", { hasText: "Moda da Ana" }).getByRole("button", { name: "Reativar" }).click();
+    await admin.locator("#stores tr", { hasText: "Moda da Ana" }).filter({ hasText: "Ativa" }).waitFor();
+    await admin.locator("#audit summary").click();
+    await admin.locator("#audit-list .row", { hasText: "Loja suspensa" }).waitFor();
+    // Lojista não entra na administração.
+    const merchantAdmin = await mobile.newPage();
+    await merchantAdmin.goto(url + "/admin");
+    await merchantAdmin.locator("#login-view").waitFor();
+    await merchantAdmin.close();
+    await adminCtx.close();
   });
 
   await check("logout encerra a sessão", async () => {

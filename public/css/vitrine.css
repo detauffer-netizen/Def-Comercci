@@ -71,3 +71,10 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .shop-footer .brand-mark { width: 22px; height: 22px; font-size: 11px; border-radius: 7px; }
 .shop-footer .brand-mark::after { display: none; }
 .product.highlight { outline: 3px solid var(--orange-500); outline-offset: 2px; }
+
+/* Variações */
+.variant-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.variant-chips .chip { min-height: 40px; }
+.variant-chips .chip:disabled { opacity: .45; text-decoration: line-through; cursor: not-allowed; }
+.price-from { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 3px; }
+.cart-line .variant { display: block; font-size: 13px; color: var(--muted); }
