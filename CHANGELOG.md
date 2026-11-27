@@ -2,6 +2,15 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.6.0] — 2026-11-27 — Cupons, painel instalável e monitoramento de erros
+
+### Adicionado
+- **Cupons de desconto**: o proprietário cria cupons em porcentagem (até 90%) ou valor fixo, com pedido mínimo, validade e limite de usos, e pode pausar ou excluir. Na vitrine, o cliente aplica o cupom no carrinho; o desconto é calculado no servidor, aparece na mensagem do WhatsApp e no pedido do painel. O limite de usos é respeitado mesmo com pedidos simultâneos.
+- **Painel instalável (PWA)**: manifesto, ícones, atalhos para Pedidos e Produtos, botão "Instalar app" e service worker que abre o painel sem internet com aviso de conexão. Respostas da API nunca ficam em cache.
+- **Monitoramento de erros**: erros inesperados do servidor são registrados (sem dados pessoais; números longos são mascarados) e aparecem agrupados no painel do administrador.
+- Pedidos guardam subtotal, desconto e cupom; exportação CSV e de dados incluem essas informações.
+- Migração 0010; 9 testes de API novos (80 no total) e 2 verificações E2E novas (24 no total).
+
 ## [0.5.0] — 2026-11-27 — Página de produto, avisos de pedidos e nova landing
 
 ### Adicionado

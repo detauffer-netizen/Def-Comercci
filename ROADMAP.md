@@ -9,7 +9,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Esquema real do D1 verificado; banco vazio, sem dados em risco
 - ✅ Vitrine quebrada em produção corrigida (erro de sintaxe)
 - ✅ Código modularizado (`src/`, `public/`), `wrangler.toml`, `package.json`
-- ✅ 71 testes de API/integração + 22 verificações E2E em navegador
+- ✅ 80 testes de API/integração + 24 verificações E2E em navegador
 - ✅ Fluxo de publicação com backup, migração e verificação de saúde; rollback documentado
 - ⛔ Publicação desta versão (ver Pendências)
 
@@ -31,6 +31,7 @@ Legenda: ✅ concluído e testado · 🟡 parcial · ⬜ não iniciado · ⛔ bl
 - ✅ Gestão de produtos, pedidos (filtros e ações por status), clientes, estoque (histórico) e loja
 - ✅ Exportação CSV de pedidos e clientes; registro de atividades
 - ✅ Layout mobile first (navegação inferior no celular, lateral no desktop)
+- ✅ Painel instalável no celular (PWA): manifesto, ícones, atalhos e abertura sem internet com aviso
 - ✅ Equipe: funcionários com permissões individuais (produtos, pedidos, clientes, indicadores), senha provisória com troca obrigatória no 1º acesso, remoção com encerramento imediato das sessões
 - ✅ Troca de senha pelo próprio usuário (encerra as outras sessões)
 - ⛔ Recuperação de senha por e-mail (precisa de provedor de e-mail)
@@ -62,14 +63,16 @@ Cloudflare, sem chave extra) para texto e visão, ou a API da Anthropic.
 - ✅ Lista de lojas com busca, indicadores por loja, suspensão (com motivo obrigatório) e reativação
 - ✅ Registro de operações de toda a plataforma
 - ✅ Script `scripts/create-admin.js` para criar o primeiro administrador
+- ✅ Monitoramento de erros do servidor na administração (últimas 24 h/7 dias, agrupados por rota e mensagem, sem dados pessoais)
 - ⬜ 2FA para administradores
 - ⬜ Planos, assinaturas e uso de IA (dependem das Fases 4 e 7)
-- ⬜ Monitoramento de erros com alertas
+- ⬜ Alertas de erro por e-mail (depende de provedor)
 
 ## Fase 7 — Monetização ⛔
 
 Preços e provedor de pagamento dependem do proprietário.
-- ⬜ Planos, período de teste, limites por plano, cupons
+- ✅ Cupons de desconto das lojas para seus clientes (percentual ou valor fixo, pedido mínimo, validade, limite de usos atômico)
+- ⬜ Planos, período de teste, limites por plano e cupons de assinatura
 - ⬜ Cobrança recorrente (Pix e cartão) com webhooks autenticados e idempotentes
 
 ## Fase 8 — Segurança e qualidade 🟡
