@@ -109,12 +109,12 @@ Provedor: Mercado Pago. Preços e ativação da cobrança dependem do proprietá
 Ordem de execução e situação real:
 
 1. 🟡 Auditoria e integração: carrinho abandonado (PR #12) e lucro/resumo (bloco 1) prontos; publicação pendente (token da Cloudflare)
-2. 🟡 Redesign do painel e navegação mobile: ✅ "Pedidos" virou Vendas, ✅ botão de ação rápida no celular; ⬜ separar Divulgação e Configurações de "Minha loja"
+2. 🟡 Redesign do painel e navegação mobile: ✅ "Pedidos" virou Vendas, ✅ botão de ação rápida no celular, ✅ menu Divulgação; ⬜ separar Configurações (equipe, segurança, assinatura) de "Minha loja"
 3. ✅ Cadastro inteligente: mensagem (com custo, quantidade e margem), foto e várias fotos de uma vez com IA; custo/código de barras/fornecedor/localização; leitura de código pela câmera; importação/exportação CSV; duplicar e editar em massa; etiquetas com código de barras
 4. ✅ Estoque: histórico por gatilho, alerta de reposição, valor do estoque, entradas com custo médio, perdas, inventário, devoluções, quantidade reservada, fornecedores e "Preciso repor" com lista de compras por fornecedor (⬜ etiquetas e códigos de barras impressos ficam para a fase 3)
 5. ✅ PDV e financeiro: venda presencial idempotente (Pix, dinheiro, cartões, misto, a prazo), comprovante, baixa pelos gatilhos; custo histórico, lucro bruto, resultado estimado, despesas, contas a receber, devoluções com reposição e calculadora de preço (⬜ leitura de código pela câmera fica na fase 3)
 6. 🟡 Catálogo premium e checkout: ✅ busca, categorias, destaques, variações, carrinho persistente, entrega/retirada, SEO por produto, filtros de preço e ordenação, ofertas/novidades, favoritos, relacionados, horário, aviso no topo, 7 modelos por segmento com prévia, acompanhamento do pedido por link secreto; ⬜ reserva de estoque com expiração, forma de pagamento pretendida no checkout
-7. 🟡 Marketing: ✅ textos com IA; ⬜ artes no navegador (Canvas) e QR Codes
+7. ✅ Marketing: menu Divulgação com arte de oferta no navegador (Feed, Status, Quadrado; 3 estilos; QR opcional), QR Codes da loja/produto/categoria com cartaz para imprimir e textos com IA
 8. 🟡 CRM e assistente: ✅ clientes a partir dos pedidos; ⬜ segmentos, observações, assistente de perguntas sobre a loja
 9. 🟡 Onboarding e comercial: ✅ primeiros passos, planos com limites; ⬜ segmento no cadastro, loja demonstrativa, planos Essencial/Profissional/Premium por recurso
 10. 🟡 Segurança e desempenho: ✅ ver `SECURITY.md`; ⬜ consumo por loja, paginação, cache público

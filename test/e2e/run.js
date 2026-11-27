@@ -121,6 +121,7 @@ try {
   await check("configuração da loja com WhatsApp e cor", async () => {
     await panel.locator('.nav a[data-view="loja"]').click();
     const form = panel.locator("#settings");
+    await panel.locator("#share-url").evaluate((el) => new Promise((ok) => { const t = () => (el.value ? ok() : setTimeout(t, 50)); t(); }));
     await form.getByLabel("WhatsApp de atendimento").fill("55 54 99999-0000");
     await form.getByLabel("Descrição curta").fill("Moda feminina com entrega na cidade.");
     await form.getByRole("button", { name: "Salvar alterações" }).click();
@@ -209,7 +210,7 @@ try {
     await narrow.addCookies(await mobile.cookies());
     const page = await narrow.newPage();
     watch(page, "320px");
-    for (const view of ["inicio", "produtos", "pedidos", "clientes", "loja"]) {
+    for (const view of ["inicio", "produtos", "pedidos", "divulgacao", "clientes", "loja"]) {
       await page.goto(`${url}/painel#${view}`);
       await page.locator(`#view-${view}`).waitFor();
       await page.waitForLoadState("networkidle");
@@ -654,7 +655,7 @@ try {
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     assert.equal(await panel.locator(".product-item", { hasText: "Saia Midi Plissada" }).count(), 0, "nada salvo sem confirmação");
 
-    await panel.goto(url + "/painel#loja");
+    await panel.goto(url + "/painel#divulgacao");
     const card = panel.locator("#ai-campaign-card");
     await card.waitFor();
     await card.getByLabel("O que você quer divulgar?").fill("promoção de fim de semana");
@@ -960,6 +961,47 @@ try {
     await noHorizontalScroll(page, "acompanhamento");
     await shot(page, "23-acompanhamento-mobile");
     await visitorCtx.close();
+  });
+
+  await check("divulgação: arte de oferta em 3 formatos e QR Codes da loja, produto e categoria", async () => {
+    await panel.goto(url + "/painel#divulgacao");
+    const sel = panel.locator("#art-product");
+    await sel.locator("option", { hasText: "Vestido Floral" }).waitFor({ state: "attached" });
+    await sel.selectOption(await sel.locator("option", { hasText: "Vestido Floral" }).getAttribute("value"));
+    // A arte tem o tamanho exato de cada formato.
+    for (const [label, w, hgt] of [["Feed 4:5", 1080, 1350], ["Status 9:16", 1080, 1920], ["Quadrado", 1080, 1080]]) {
+      await panel.locator("#art-formats").getByRole("radio", { name: label }).click();
+      await panel.waitForFunction(([ww, hh]) => { const c = document.getElementById("art-canvas"); return c.width === ww && c.height === hh; }, [w, hgt]);
+    }
+    await panel.getByLabel("Chamada").fill("Só neste fim de semana");
+    const [download] = await Promise.all([panel.waitForEvent("download"), panel.getByRole("button", { name: "Baixar imagem" }).click()]);
+    assert.match(download.suggestedFilename(), /^arte-moda-da-ana-square\.png$/);
+    if (SHOTS) await download.saveAs(`${SHOTS}/25-arte-quadrada.png`);
+    const png = await readFile(await download.path());
+    assert.equal(png.subarray(1, 4).toString(), "PNG");
+    assert.equal(png.readUInt32BE(16), 1080);
+    assert.equal(png.readUInt32BE(20), 1080);
+    // A arte não foi "contaminada" por imagem de outra origem (o download funcionou).
+    await noHorizontalScroll(panel, "divulgação");
+    await shot(panel, "24-divulgacao-mobile");
+    // QR Codes.
+    await panel.locator("#qr-preview svg").waitFor();
+    assert.match(await panel.locator("#qr-url").textContent(), /\/loja\/moda-da-ana$/);
+    await panel.getByLabel("Levar para").selectOption("category");
+    await panel.locator("#qr-url", { hasText: "?categoria=" }).waitFor();
+    const categoryLink = await panel.locator("#qr-url").textContent();
+    await panel.getByLabel("Levar para").selectOption("product");
+    await panel.locator("#qr-url", { hasText: "/p/" }).waitFor();
+    const [qrFile] = await Promise.all([panel.waitForEvent("download"), panel.getByRole("button", { name: "Baixar PNG" }).click()]);
+    assert.match(qrFile.suggestedFilename(), /^qrcode-moda-da-ana\.png$/);
+    // O link de categoria abre a vitrine já filtrada.
+    // Celular de um cliente que escaneou o QR Code (sem nada em cache).
+    const phone = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+    const visitor = await phone.newPage();
+    await visitor.goto(categoryLink);
+    const cat = decodeURIComponent(categoryLink.split("categoria=")[1]);
+    await visitor.locator("#all-title", { hasText: cat }).waitFor();
+    await phone.close();
   });
 
   await check("logout encerra a sessão", async () => {

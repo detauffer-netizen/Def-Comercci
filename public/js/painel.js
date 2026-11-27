@@ -2,6 +2,7 @@ import {
   ApiError, api, centsToInput, sortCategories, compressImage, downloadCsv, formatDate, formatPhone, h, icon, money, parseMoney, toast, whatsappLink,
 } from "./common.js";
 import { barcodeSvg } from "./barcode.js";
+import { drawQr, qrSvg } from "./qrcode.js";
 import { mountTwoFactor } from "./twofactor.js";
 
 const $ = (id) => document.getElementById(id);
@@ -14,8 +15,8 @@ const STATUS = {
   completed: { label: "Concluído", badge: "badge-ok" },
   cancelled: { label: "Cancelado", badge: "badge-danger" },
 };
-const VIEWS = ["inicio", "produtos", "pedidos", "clientes", "loja"];
-const VIEW_PERMISSION = { inicio: null, produtos: "products", pedidos: "orders", clientes: "customers", loja: "owner" };
+const VIEWS = ["inicio", "produtos", "pedidos", "divulgacao", "clientes", "loja"];
+const VIEW_PERMISSION = { inicio: null, produtos: "products", pedidos: "orders", divulgacao: "products", clientes: "customers", loja: "owner" };
 
 function can(permission) {
   if (!permission) return true;
@@ -211,7 +212,7 @@ function route() {
     else a.removeAttribute("aria-current");
   }
   window.scrollTo(0, 0);
-  ({ inicio: loadHome, produtos: loadProducts, pedidos: loadOrders, clientes: loadCustomers, loja: loadStore })[view]().catch(fail);
+  ({ inicio: loadHome, produtos: loadProducts, pedidos: loadOrders, divulgacao: loadMarketing, clientes: loadCustomers, loja: loadStore })[view]().catch(fail);
 }
 
 function loading(container) {
@@ -719,7 +720,7 @@ async function refreshAiUsage() {
   $("ai-box").hidden = !aiAvailable;
   $("ai-improve").hidden = !aiAvailable;
   $("open-photos").hidden = !aiAvailable;
-  if (can("owner")) $("ai-campaign-card").hidden = !aiAvailable;
+  if (can("products")) $("ai-campaign-card").hidden = !aiAvailable;
 }
 
 function resetAiBox() {
@@ -2058,6 +2059,280 @@ async function saveDrafts() {
   });
 }
 
+// ---------- Divulgação: arte de oferta e QR Codes ----------
+
+const ART_SIZES = { feed: [1080, 1350], story: [1080, 1920], square: [1080, 1080] };
+const art = { format: "feed", style: "offer", image: null, imageFor: null };
+const storeUrl = () => `${location.origin}/loja/${state.me.store.slug}`;
+const productUrl = (p) => `${storeUrl()}/p/${p.id}`;
+
+async function loadMarketing() {
+  if (!state.products.length || state.productsStale) {
+    state.products = await api("/api/products");
+    state.productsStale = false;
+  }
+  const list = state.products.filter((p) => p.active);
+  const prev = $("art-product").value;
+  $("art-product").replaceChildren(...(list.length
+    ? list.map((p) => h("option", { value: p.id, text: `${p.name} — ${money(p.final_price_cents)}` }))
+    : [h("option", { value: "", text: "Cadastre um produto visível na vitrine" })]));
+  if (prev && list.some((p) => p.id === prev)) $("art-product").value = prev;
+  $("art-share").hidden = !navigator.canShare;
+  await drawArt();
+  updateQr();
+  if (aiAvailable === null) refreshAiUsage();
+}
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function wrapLines(ctx, text, maxWidth, maxLines) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width <= maxWidth || !line) line = test;
+    else { lines.push(line); line = w; }
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    const cut = lines.slice(0, maxLines);
+    let last = cut[maxLines - 1];
+    while (ctx.measureText(`${last}…`).width > maxWidth && last.length > 1) last = last.slice(0, -1);
+    cut[maxLines - 1] = `${last}…`;
+    return cut;
+  }
+  return lines;
+}
+
+function roundRect(ctx, x, y, w, hgt, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + hgt, r);
+  ctx.arcTo(x + w, y + hgt, x, y + hgt, r);
+  ctx.arcTo(x, y + hgt, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function drawArt() {
+  const p = state.products.find((x) => x.id === $("art-product").value);
+  const canvas = $("art-canvas");
+  const [W, H] = ART_SIZES[art.format];
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const store = state.me.store;
+  const accent = store.accent || "#2563eb";
+  const font = getComputedStyle(document.body).fontFamily || "sans-serif";
+  const dark = art.style !== "clean";
+  // Fundo
+  if (art.style === "offer") {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, accent);
+    g.addColorStop(1, "#0b1f3a");
+    ctx.fillStyle = g;
+  } else ctx.fillStyle = art.style === "new" ? "#0b1f3a" : "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  const ink = dark ? "#ffffff" : "#0b1f3a";
+  const pad = 72;
+  // Loja
+  ctx.fillStyle = ink;
+  ctx.font = `800 44px ${font}`;
+  ctx.textBaseline = "top";
+  ctx.fillText(store.name.slice(0, 32), pad, pad);
+  if (!p) {
+    ctx.font = `600 40px ${font}`;
+    ctx.fillText("Cadastre um produto para criar a arte.", pad, H / 2);
+    return;
+  }
+  // Chamada (texto do lojista ou padrão do estilo)
+  const discount = p.final_price_cents < p.price_cents ? Math.round((1 - p.final_price_cents / p.price_cents) * 100) : 0;
+  const headline = ($("art-headline").value.trim() || { offer: discount ? "Oferta especial" : "Confira", new: "Novidade na loja", clean: "" }[art.style]).toUpperCase();
+  let y = pad + 70;
+  if (headline) {
+    ctx.font = `800 34px ${font}`;
+    const tw = ctx.measureText(headline).width;
+    ctx.fillStyle = "#ff7a00";
+    roundRect(ctx, pad, y, tw + 48, 64, 32);
+    ctx.fill();
+    ctx.fillStyle = "#0b1f3a";
+    ctx.fillText(headline, pad + 24, y + 15);
+    y += 90;
+  }
+  // Foto (recortada para preencher)
+  const imgH = Math.round(H * (art.format === "story" ? 0.42 : art.format === "square" ? 0.3 : 0.4));
+  const imgW = W - pad * 2;
+  const src = p.images[0]?.url;
+  if (src && art.imageFor !== src) {
+    art.image = await loadImage(src);
+    art.imageFor = src;
+  }
+  ctx.save();
+  roundRect(ctx, pad, y, imgW, imgH, 36);
+  ctx.clip();
+  ctx.fillStyle = dark ? "rgba(255,255,255,.12)" : "#eef2f8";
+  ctx.fillRect(pad, y, imgW, imgH);
+  if (src && art.image) {
+    const img = art.image;
+    const scale = Math.max(imgW / img.width, imgH / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, pad + (imgW - dw) / 2, y + (imgH - dh) / 2, dw, dh);
+  }
+  ctx.restore();
+  if (discount && art.style !== "new") {
+    ctx.fillStyle = "#ff7a00";
+    ctx.beginPath();
+    ctx.arc(W - pad - 80, y + 80, 74, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0b1f3a";
+    ctx.font = `900 50px ${font}`;
+    ctx.textAlign = "center";
+    ctx.fillText(`-${discount}%`, W - pad - 80, y + 54);
+    ctx.textAlign = "left";
+  }
+  y += imgH + 40;
+  // Nome
+  ctx.fillStyle = ink;
+  ctx.font = `800 60px ${font}`;
+  for (const line of wrapLines(ctx, p.name, W - pad * 2, 2)) {
+    ctx.fillText(line, pad, y);
+    y += 72;
+  }
+  // Preço (do cadastro; o "de" só aparece com promoção real)
+  if ($("art-price").checked) {
+    y += 8;
+    if (discount) {
+      ctx.font = `600 40px ${font}`;
+      ctx.fillStyle = dark ? "rgba(255,255,255,.7)" : "#5b6b82";
+      const old = `de ${money(p.price_cents)}`;
+      ctx.fillText(old, pad, y);
+      const ow = ctx.measureText(old).width;
+      ctx.fillRect(pad, y + 22, ow, 4);
+      y += 54;
+    }
+    ctx.fillStyle = dark ? "#ffffff" : accent;
+    ctx.font = `900 104px ${font}`;
+    const prefix = p.variants.length && new Set(p.variants.map((v) => v.price_cents ?? p.final_price_cents)).size > 1 ? "a partir de " : "";
+    if (prefix) {
+      ctx.font = `700 40px ${font}`;
+      ctx.fillText(prefix, pad, y + 50);
+      const pw = ctx.measureText(prefix).width;
+      ctx.font = `900 104px ${font}`;
+      ctx.fillText(money(p.final_price_cents), pad + pw, y);
+    } else ctx.fillText(money(p.final_price_cents), pad, y);
+    y += 130;
+  }
+  // QR Code e chamada para ação no rodapé
+  const qrSize = $("art-qr").checked ? (art.format === "story" ? 240 : 200) : 0;
+  const bottom = H - pad;
+  if (qrSize) drawQr(ctx, productUrl(p), W - pad - qrSize, bottom - qrSize, qrSize);
+  const cta = $("art-cta").value.trim();
+  if (cta) {
+    ctx.font = `800 42px ${font}`;
+    const maxCta = W - pad * 2 - (qrSize ? qrSize + 30 : 0);
+    const text = wrapLines(ctx, cta, maxCta - 72, 1)[0];
+    const cw = Math.min(maxCta, ctx.measureText(text).width + 72);
+    ctx.fillStyle = "#ff7a00";
+    roundRect(ctx, pad, bottom - 96, cw, 96, 48);
+    ctx.fill();
+    ctx.fillStyle = "#0b1f3a";
+    ctx.fillText(text, pad + 36, bottom - 96 + 26);
+  }
+  // Endereço da loja só se couber sem encostar no preço.
+  if (y <= bottom - 96 - 56) {
+    ctx.fillStyle = dark ? "rgba(255,255,255,.75)" : "#5b6b82";
+    ctx.font = `600 28px ${font}`;
+    ctx.fillText(storeUrl().replace(/^https?:\/\//, ""), pad, bottom - 96 - 50);
+  }
+}
+
+function artBlob() {
+  return new Promise((resolve) => $("art-canvas").toBlob(resolve, "image/png"));
+}
+
+async function downloadArt() {
+  const blob = await artBlob();
+  const a = h("a", { href: URL.createObjectURL(blob), download: `arte-${state.me.store.slug}-${art.format}.png` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function shareArt() {
+  const file = new File([await artBlob()], `arte-${state.me.store.slug}.png`, { type: "image/png" });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: state.me.store.name }); } catch { /* cancelado */ }
+  } else downloadArt();
+}
+
+function qrLink() {
+  const target = $("qr-target").value;
+  const item = $("qr-item").value;
+  if (target === "product") {
+    const p = state.products.find((x) => x.id === item);
+    return p ? productUrl(p) : storeUrl();
+  }
+  if (target === "category" && item) return `${storeUrl()}?categoria=${encodeURIComponent(item)}`;
+  return storeUrl();
+}
+
+function updateQr(changedTarget = false) {
+  const target = $("qr-target").value;
+  $("qr-item-field").hidden = target === "store";
+  if (changedTarget) {
+    $("qr-item-label").textContent = target === "product" ? "Produto" : "Categoria";
+    const options = target === "product"
+      ? state.products.filter((p) => p.active).map((p) => h("option", { value: p.id, text: p.name }))
+      : [...new Set(state.products.map((p) => p.category).filter(Boolean))].sort().map((c) => h("option", { value: c, text: c }));
+    $("qr-item").replaceChildren(...options);
+  }
+  const link = qrLink();
+  $("qr-preview").replaceChildren(qrSvg(link));
+  $("qr-url").textContent = link;
+}
+
+function downloadQr() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 1024;
+  drawQr(canvas.getContext("2d"), qrLink(), 0, 0, 1024, { margin: 4 });
+  canvas.toBlob((blob) => {
+    const a = h("a", { href: URL.createObjectURL(blob), download: `qrcode-${state.me.store.slug}.png` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "image/png");
+}
+
+function printQr() {
+  const link = qrLink();
+  const poster = h("div", { class: "qr-poster" },
+    h("h1", { text: state.me.store.name }),
+    h("p", { text: "Aponte a câmera do celular e veja nossos produtos" }),
+    qrSvg(link),
+    h("small", { text: link.replace(/^https?:\/\//, "") }));
+  document.body.append(poster);
+  document.body.classList.add("printing-qr");
+  const done = () => {
+    document.body.classList.remove("printing-qr");
+    poster.remove();
+    window.removeEventListener("afterprint", done);
+  };
+  window.addEventListener("afterprint", done);
+  window.print();
+  setTimeout(done, 1000);
+}
+
 async function setOrderStatus(order, status, button) {
   const confirmText = {
     cancelled: order.status === "confirmed" ? "Cancelar o pedido e devolver os itens ao estoque?" : "Cancelar este pedido?",
@@ -2115,6 +2390,7 @@ async function loadStore() {
   const f = $("settings").elements;
   // Não sobrescreve o que o lojista já começou a digitar enquanto a tela carregava.
   if (!$("settings").dataset.dirty) fillSettings(s, f);
+  else if (!$("hours-editor").children.length) renderHoursEditor(s.hours || []);
   const url = `${location.origin}/loja/${s.slug}`;
   $("share-url").value = url;
   $("catalog-pdf").href = `/loja/${s.slug}/catalogo`;
@@ -2560,8 +2836,33 @@ $("bulk-all").addEventListener("click", () => {
   }
 });
 $("duplicate-product").addEventListener("click", duplicateProduct);
+$("art-product").addEventListener("change", () => drawArt().catch(fail));
+for (const id of ["art-headline", "art-cta"]) $(id).addEventListener("input", () => drawArt().catch(fail));
+for (const id of ["art-qr", "art-price"]) $(id).addEventListener("change", () => drawArt().catch(fail));
+$("art-formats").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-format]");
+  if (!b) return;
+  art.format = b.dataset.format;
+  for (const x of document.querySelectorAll("#art-formats button")) x.setAttribute("aria-checked", String(x === b));
+  drawArt().catch(fail);
+});
+$("art-styles").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-style]");
+  if (!b) return;
+  art.style = b.dataset.style;
+  for (const x of document.querySelectorAll("#art-styles button")) x.setAttribute("aria-checked", String(x === b));
+  drawArt().catch(fail);
+});
+$("art-download").addEventListener("click", () => downloadArt().catch(fail));
+$("art-share").addEventListener("click", () => shareArt().catch(fail));
+$("qr-target").addEventListener("change", () => updateQr(true));
+$("qr-item").addEventListener("change", () => updateQr());
+$("qr-download").addEventListener("click", downloadQr);
+$("qr-print").addEventListener("click", printQr);
 $("settings").elements.template.addEventListener("change", updateTemplatePreview);
 $("settings").addEventListener("input", () => { $("settings").dataset.dirty = "1"; });
+// O editor de horário já existe antes de carregar: a tela não "pula" depois.
+renderHoursEditor([]);
 $("photos-input").addEventListener("change", (e) => {
   const files = [...e.target.files];
   e.target.value = "";
